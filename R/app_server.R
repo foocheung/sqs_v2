@@ -1,4 +1,5 @@
 # ---- server.R (or app_server.R) ----
+
 # Required packages
 library(shiny)
 library(dplyr)
@@ -10,6 +11,146 @@ library(callr)
 library(rmarkdown)
 library(knitr)
 library(kableExtra)
+library(forcats)  # for factor ordering
+
+# ---- Helpers (bytes, duration, CV, Levey-Jennings, HTML inject) ----
+
+pretty_bytes <- function(bytes) {
+  units <- c("B","KB","MB","GB","TB")
+  if (is.na(bytes) || bytes < 1) return("0 B")
+  pow <- min(floor(log(bytes, 1024)), length(units) - 1)
+  sprintf("%.1f %s", bytes / (1024^pow), units[pow + 1])
+}
+
+pretty_duration <- function(sec) {
+  sec <- as.numeric(sec)
+  if (sec < 60) return(sprintf("%.2fs", sec))
+  mins <- floor(sec / 60); secs <- round(sec - mins * 60, 1)
+  sprintf("%dm %.1fs", mins, secs)
+}
+
+safe_cv <- function(x) {
+  m <- mean(x, na.rm = TRUE)
+  s <- stats::sd(x, na.rm = TRUE)
+  if (!is.finite(m) || m <= 0) return(NA_real_)
+  s / m
+}
+
+# Inject a small HTML footer with run metadata into the report
+.inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
+  footer <- paste0(
+    "\n<!-- SQS run metadata -->\n",
+    "<div style='margin-top:2rem;padding-top:1rem;border-top:1px solid #ddd;",
+    "font-size:0.9em;color:#555;'>\n",
+    "<strong>Report generated:</strong> ", run_time, "<br/>\n",
+    "<strong>Duration:</strong> ", duration_str, "<br/>\n",
+    "<strong>File size:</strong> ", size_str, "\n",
+    "</div>\n"
+  )
+  
+  txt <- tryCatch(readLines(html_path, warn = FALSE, encoding = "UTF-8"),
+                  error = function(e) NULL)
+  if (is.null(txt)) {
+    # fallback: just append raw footer if we couldn't read the file as lines
+    cat(footer, file = html_path, append = TRUE)
+    return(invisible(TRUE))
+  }
+  
+  body_idx <- tail(grep("</body>", txt, ignore.case = TRUE), 1)
+  if (length(body_idx) == 1L && is.finite(body_idx)) {
+    # insert footer just before </body>
+    txt <- append(txt, values = footer, after = body_idx - 1)
+    writeLines(txt, html_path, useBytes = TRUE)
+  } else {
+    # fallback: append at end
+    writeLines(c(txt, footer), html_path, useBytes = TRUE)
+  }
+  invisible(TRUE)
+}
+
+# Namespaced, robust Levey–Jennings plot (median-centered by default)
+plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
+                       sample_type = "QC",
+                       sd_levels = c(1, 2),
+                       center = c("median", "mean"),
+                       y_lab = "Per-plate median CV (%)") {
+  center <- base::match.arg(center)
+  
+  df_cvs_per_plate <- adat_tbl |>
+    dplyr::filter(.data$SampleType == sample_type) |>
+    dplyr::select(.data$PlateId, tidyselect::starts_with("seq.")) |>
+    dplyr::group_by(.data$PlateId) |>
+    dplyr::summarise(dplyr::across(where(is.numeric), safe_cv), .groups = "drop")
+  
+  df_cvs_per_plate_quant <- df_cvs_per_plate |>
+    tidyr::pivot_longer(-.data$PlateId, names_to = "SeqId", values_to = "CV") |>
+    dplyr::group_by(.data$PlateId) |>
+    dplyr::summarise(
+      `10%` = round(stats::quantile(CV, 0.10, na.rm = TRUE) * 100, 1),
+      `50%` = round(stats::median(CV, na.rm = TRUE) * 100, 1),
+      `90%` = round(stats::quantile(CV, 0.90, na.rm = TRUE) * 100, 1),
+      .groups = "drop"
+    )
+  
+  exp_date <- as.character(adat_header$Header.Meta$HEADER$ExpDate)
+  
+  ref_plot_dat <- df_cvs_all |>
+    dplyr::filter(.data$SampleType == sample_type) |>
+    dplyr::anti_join(df_cvs_per_plate_quant |> dplyr::select(.data$PlateId), by = "PlateId") |>
+    dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
+    dplyr::mutate(PlateKey = paste0(.data$ExpDate, "-", .data$PlateId), Data = "Reference")
+  
+  if (nrow(ref_plot_dat) == 0) {
+    ref_plot_dat <- df_cvs_all |>
+      dplyr::filter(.data$SampleType == sample_type) |>
+      dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
+      dplyr::mutate(PlateKey = paste0(.data$ExpDate, "-", .data$PlateId), Data = "Reference")
+    warning("No historical plates left after exclusion; using all as reference.")
+  }
+  
+  ref_center <- if (center == "median") {
+    stats::median(ref_plot_dat$`50%`, na.rm = TRUE)
+  } else {
+    base::mean(ref_plot_dat$`50%`, na.rm = TRUE)
+  }
+  ref_sd <- stats::sd(ref_plot_dat$`50%`, na.rm = TRUE)
+  
+  samp_plot_dat <- df_cvs_per_plate_quant |>
+    dplyr::mutate(ExpDate = exp_date) |>
+    dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
+    dplyr::mutate(PlateKey = paste0(.data$ExpDate, "-", .data$PlateId), Data = "Sample")
+  
+  plot_dat <- dplyr::bind_rows(ref_plot_dat, samp_plot_dat) |>
+    dplyr::arrange(.data$ExpDate, .data$PlateId) |>
+    dplyr::mutate(
+      Data = factor(.data$Data, levels = c("Reference", "Sample")),
+      PlateKey = forcats::fct_inorder(.data$PlateKey)
+    )
+  
+  p <- ggplot2::ggplot(plot_dat,
+                       ggplot2::aes(x = .data$PlateKey, y = `50%`, group = 1, color = .data$Data)) +
+    ggplot2::geom_hline(yintercept = ref_center, linewidth = 0.5)
+  
+  for (k in sd_levels) {
+    p <- p +
+      ggplot2::geom_hline(yintercept = ref_center + k * ref_sd,
+                          linetype = "dashed", linewidth = 0.3) +
+      ggplot2::geom_hline(yintercept = ref_center - k * ref_sd,
+                          linetype = "dashed", linewidth = 0.3)
+  }
+  
+  p +
+    ggplot2::geom_point() +
+    ggplot2::geom_line() +
+    ggplot2::scale_color_manual(breaks = c("Reference", "Sample"),
+                                values = c("#56B4E9", "#E69F00")) +
+    ggplot2::labs(y = y_lab, x = "Date - Plate ID") +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+}
 
 # Your app option
 options(shiny.maxRequestSize = 100 * 1024^2)
@@ -17,16 +158,31 @@ options(shiny.maxRequestSize = 100 * 1024^2)
 app_server <- function(input, output, session) {
   # Set once at app start
   options(shiny.maxRequestSize = 100 * 1024^2)
-
+  
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
   callModule(mod_table_server, "table_ui_1", metafile)
-
+  
   # ---- Report download (HTML; no TinyTeX needed) ----
   output$downloadReport <- downloadHandler(
     filename = function() paste0("SomaScan_QC_Report_", Sys.Date(), ".html"),
     content  = function(file) {
-      withProgress(message = "Generating HTML report…", value = 0, {
+      
+      start_time <- Sys.time()
+      success <- FALSE
+      
+      on.exit({
+        end_time <- Sys.time()
+        dur  <- pretty_duration(difftime(end_time, start_time, units = "secs"))
+        size <- if (file.exists(file)) pretty_bytes(file.info(file)$size) else "0 B"
+        shiny::showNotification(
+          paste0("Report ", if (success) "completed" else "failed", ": ", dur, " · ", size),
+          type = if (success) "message" else "error",
+          duration = 10
+        )
+      }, add = TRUE)
+      
+      shiny::withProgress(message = "Generating HTML report…", value = 0, {
         # Workspace
         timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
         temp_dir  <- file.path(tempdir(), paste0("somascan_", timestamp))
@@ -34,24 +190,24 @@ app_server <- function(input, output, session) {
         plot_dir  <- file.path(temp_dir, "plots")
         dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
         rmd_file  <- file.path(temp_dir, "report.Rmd")
-
+        
         # Validate inputs
-        incProgress(0.15, detail = "Validating input…")
+        shiny::incProgress(0.15, detail = "Validating input…")
         if (is.null(metafile$df()) || is.null(metafile$df2())) {
           stop("Input data is missing. Please ensure data is loaded correctly.")
         }
-
+        
         # Plots
-        incProgress(0.35, detail = "Generating plots…")
+        shiny::incProgress(0.35, detail = "Generating plots…")
         plot_files <- generate_plots(metafile, plot_dir)
-
+        
         # Rmd content
-        incProgress(0.6, detail = "Preparing R Markdown…")
+        shiny::incProgress(0.6, detail = "Preparing R Markdown…")
         rmd_content <- generate_rmd_report_html(metafile, plot_files, temp_dir)
         writeLines(rmd_content, rmd_file)
-
+        
         # Render to self-contained HTML
-        incProgress(0.85, detail = "Rendering HTML…")
+        shiny::incProgress(0.85, detail = "Rendering HTML…")
         callr::r(
           function(rmd_file, out_file) {
             rmarkdown::render(
@@ -71,14 +227,35 @@ app_server <- function(input, output, session) {
           },
           args = list(rmd_file = rmd_file, out_file = file)
         )
-
-        incProgress(1)
+        
+        # Mark success and compute final metrics
+        success <- TRUE
+        end_time <- Sys.time()
+        dur  <- pretty_duration(difftime(end_time, start_time, units = "secs"))
+        size <- if (file.exists(file)) pretty_bytes(file.info(file)$size) else "0 B"
+        
+        # Inject metadata footer into the generated HTML
+        run_stamp <- format(end_time, "%Y-%m-%d %H:%M:%S %Z")
+        try(.inject_report_footer(html_path = file,
+                                  run_time = run_stamp,
+                                  duration_str = dur,
+                                  size_str = size),
+            silent = TRUE)
+        
+        # Progress UI
+        shiny::setProgress(1, message = paste0("Done in ", dur, " · ", size),
+                           detail = "Click to download.")
       })
     }
   )
+  
+  # ---- helpers you already have elsewhere ----
+  # generate_plots <- function(metafile, plot_dir) { ... }
+  # generate_rmd_report_html <- function(metafile, plot_files, temp_dir) { ... }
 
+  
   # ---- helpers ----
-
+  
   # Generate and save plots
   generate_plots <- function(metafile, plot_dir) {
     # PCA: Sample Type
@@ -101,7 +278,7 @@ app_server <- function(input, output, session) {
       ggplot2::theme_minimal()
     pca_sample_type_file <- file.path(plot_dir, "pca_sample_type.png")
     ggplot2::ggsave(pca_sample_type_file, plot_pca, width = 8, height = 6, dpi = 300)
-
+    
     # PCA: RowCheck
     avoid_SOMAmers <- foodata::load_data2()
     avoid_prot <- avoid_SOMAmers %>%
@@ -128,18 +305,18 @@ app_server <- function(input, output, session) {
       ggplot2::theme_minimal()
     pca_rowcheck_file <- file.path(plot_dir, "pca_sample_rowcheck.png")
     ggplot2::ggsave(pca_rowcheck_file, plot_samp_pca_flag, width = 8, height = 6, dpi = 300)
-
+    
     # Levey–Jennings plots (your functions/data)
     df_cvs_all <- foodata::load_data4()
     adat_header <- metafile$df2()
     levey_cal <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
     levey_calibrator_file <- file.path(plot_dir, "levey_calibrator.png")
     ggplot2::ggsave(levey_calibrator_file, levey_cal, width = 8, height = 6, dpi = 300)
-
+    
     levey_qc <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "QC")
     levey_somalogic_qc_file <- file.path(plot_dir, "levey_somalogic_qc.png")
     ggplot2::ggsave(levey_somalogic_qc_file, levey_qc, width = 8, height = 6, dpi = 300)
-
+    
     list(
       pca_sample_type     = pca_sample_type_file,
       pca_sample_rowcheck = pca_rowcheck_file,
@@ -147,30 +324,30 @@ app_server <- function(input, output, session) {
       levey_somalogic_qc  = levey_somalogic_qc_file
     )
   }
-
+  
   # Build Rmd content for HTML (no LaTeX; includes fixes + NA-safe CVs + robust SOMAmers)
   generate_rmd_report_html <- function(metafile, plot_files, temp_dir) {
-
+    
     # ---- helpers for CVs ----
     safe_cv <- function(x) {
       m <- mean(x, na.rm = TRUE)
       if (!is.finite(m) || m == 0) return(NA_real_)
       sd(x, na.rm = TRUE) / m
     }
-
+    
     # Sample summary
     samp_summary <- as.data.frame.matrix(table(metafile$df()$PlateId, metafile$df()$SampleType)) %>%
       tibble::rownames_to_column("PlateId")
-
+    
     # Flags
     flagged_samples <- metafile$df() %>%
       dplyr::filter(RowCheck == "FLAG") %>%
       dplyr::select(PlateId, SampleId, SampleType)
-
+    
     rowcheck_dat <- metafile$df() %>%
       dplyr::select(PlateId, SampleType, RowCheck)
     pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
-
+    
     # Median norm
     df_norm_scale <- metafile$df() %>%
       dplyr::select(PlateId, SampleId, SampleType, NormScale_0_005, NormScale_0_5, NormScale_20) %>%
@@ -187,7 +364,7 @@ app_server <- function(input, output, session) {
         Flag  = sum(pass_flag$Sample) - Pass,
         Total = sum(pass_flag$Sample)
       )
-
+    
     # ANML fraction
     df_anml_fraction <- metafile$df() %>%
       dplyr::select(PlateId, SampleId, SampleType, ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
@@ -204,26 +381,26 @@ app_server <- function(input, output, session) {
         Flag  = sum(pass_flag$Sample) - Pass,
         Total = sum(pass_flag$Sample)
       )
-
+    
     # Header/meta
     adat_header <- metafile$df2()
     keys <- names(adat_header$Header.Meta$HEADER)
-
+    
     # Plate scale (FIX: non-syntactic name "Plate Check")
     df_plate_scale <- {
       keys_scalar <- grep("^PlateScale_Scalar", keys, value = TRUE)
       keys_pass   <- grep("^PlateScale_PassFlag", keys, value = TRUE)
-
+      
       pass <- data.frame(`Plate Check` = unlist(adat_header$Header.Meta$HEADER[keys_pass]),
                          check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^PlateScale_PassFlag_", "", Plate))
-
+      
       scalar <- data.frame(Value = unlist(adat_header$Header.Meta$HEADER[keys_scalar]),
                            check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^PlateScale_Scalar_", "", Plate))
-
+      
       dplyr::inner_join(pass, scalar, by = "Plate") %>%
         dplyr::transmute(
           Plate,
@@ -232,22 +409,22 @@ app_server <- function(input, output, session) {
           Value = round(as.numeric(.data[["Value"]]), 2)
         )
     }
-
+    
     # Calibrator percent in tails (FIX: "Plate Check")
     df_cal_perc_tails <- {
       keys_pct <- grep("^CalPlateTailPercent", keys, value = TRUE)
       keys_tst <- grep("^CalPlateTailTest",    keys, value = TRUE)
-
+      
       test <- data.frame(`Plate Check` = unlist(adat_header$Header.Meta$HEADER[keys_tst]),
                          check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
-
+      
       pct <- data.frame(Value = unlist(adat_header$Header.Meta$HEADER[keys_pct]),
                         check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
-
+      
       dplyr::inner_join(test, pct, by = "Plate") %>%
         dplyr::transmute(
           Plate,
@@ -256,7 +433,7 @@ app_server <- function(input, output, session) {
           Value = round(as.numeric(.data[["Value"]]), 2)
         )
     }
-
+    
     # SOMAmers in tails — robust to missing FLAG/PASS
     df_SOMAmers_tails <- data.frame(
       "SeqId"            = adat_header$Col.Meta$SeqId,
@@ -275,7 +452,7 @@ app_server <- function(input, output, session) {
       `PASS` = n_pass,
       `Total` = n_total
     )
-
+    
     # --- Calibrator CVs (per plate) — NA safe ---
     df_cvs <- metafile$df() %>%
       dplyr::filter(SampleType == "Calibrator") %>%
@@ -292,7 +469,7 @@ app_server <- function(input, output, session) {
         `90%` = if (dplyr::n() == 0) NA_real_ else round(quantile(CV, 0.9, na.rm = TRUE) * 100, 1),
         .groups = "drop"
       )
-
+    
     # --- QC CVs (overall; joined with lot) — NA safe ---
     df_cvs_qc <- metafile$df() %>%
       dplyr::filter(SampleType == "QC") %>%
@@ -306,7 +483,7 @@ app_server <- function(input, output, session) {
         `50%` = if (dplyr::n() == 0) NA_real_ else round(median(CV, na.rm = TRUE) * 100, 1),
         `90%` = if (dplyr::n() == 0) NA_real_ else round(quantile(CV, 0.9, na.rm = TRUE) * 100, 1)
       )
-
+    
     qc_cv_summary <- metafile$df() %>%
       dplyr::filter(SampleType == "QC") %>%
       dplyr::select(Barcode) %>%
@@ -314,7 +491,7 @@ app_server <- function(input, output, session) {
       unique() %>%
       dplyr::bind_cols(., df_cvs_qc) %>%
       dplyr::rename(`QC Lot` = Barcode)
-
+    
     # Save for Rmd
     saveRDS(samp_summary,      file.path(temp_dir, "samp_summary.rds"))
     saveRDS(flagged_samples,   file.path(temp_dir, "flagged_samples.rds"))
@@ -325,7 +502,7 @@ app_server <- function(input, output, session) {
     saveRDS(somamers_summary,  file.path(temp_dir, "somamers_summary.rds"))
     saveRDS(df_cvs,            file.path(temp_dir, "df_cvs.rds"))
     saveRDS(qc_cv_summary,     file.path(temp_dir, "qc_cv_summary.rds"))
-
+    
     # Rmd body (HTML)
     c(
       '---',

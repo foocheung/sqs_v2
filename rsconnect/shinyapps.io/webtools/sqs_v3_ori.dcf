@@ -1,0 +1,12 @@
+name: sqs_v3_ori
+title: sqs_v3_ori
+username: webtools
+account: webtools
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15151883
+bundleId: 10791546
+url: https://webtools.shinyapps.io/sqs_v3_ori/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
