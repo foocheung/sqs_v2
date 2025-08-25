@@ -23,7 +23,12 @@ Imports:
     arrow,
     tibble,
     dplyr,
-    bslib
+    bslib,
+    callr,
+    rmarkdown,
+    knitr,
+    kableExtra,
+    forcats
 Remotes:
     github::foocheung/foodata
 Encoding: UTF-8
