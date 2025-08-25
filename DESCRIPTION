@@ -23,8 +23,7 @@ Imports:
     arrow,
     tibble,
     dplyr,
-    bslib,
-    tinytex
+    bslib
 Remotes:
     github::foocheung/foodata
 Encoding: UTF-8
