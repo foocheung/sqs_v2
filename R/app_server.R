@@ -1,5 +1,3 @@
-# ---- server.R (or app_server.R) ----
-
 # Required packages
 library(shiny)
 library(dplyr)
@@ -51,18 +49,15 @@ safe_cv <- function(x) {
   txt <- tryCatch(readLines(html_path, warn = FALSE, encoding = "UTF-8"),
                   error = function(e) NULL)
   if (is.null(txt)) {
-    # fallback: just append raw footer if we couldn't read the file as lines
     cat(footer, file = html_path, append = TRUE)
     return(invisible(TRUE))
   }
   
   body_idx <- tail(grep("</body>", txt, ignore.case = TRUE), 1)
   if (length(body_idx) == 1L && is.finite(body_idx)) {
-    # insert footer just before </body>
     txt <- append(txt, values = footer, after = body_idx - 1)
     writeLines(txt, html_path, useBytes = TRUE)
   } else {
-    # fallback: append at end
     writeLines(c(txt, footer), html_path, useBytes = TRUE)
   }
   invisible(TRUE)
@@ -124,11 +119,21 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
     dplyr::arrange(.data$ExpDate, .data$PlateId) |>
     dplyr::mutate(
       Data = factor(.data$Data, levels = c("Reference", "Sample")),
-      PlateKey = forcats::fct_inorder(.data$PlateKey)
+      PlateKey = as.character(.data$PlateKey),  # ensure character
+      PlateKeyShort = dplyr::if_else(
+        nchar(.data$PlateKey) > 80,
+        paste0(substr(.data$PlateKey, 1, 40), "...", substr(.data$PlateKey, nchar(.data$PlateKey) - 39, nchar(.data$PlateKey))),
+        .data$PlateKey
+      ),
+      PlateKeyShort = forcats::fct_inorder(PlateKeyShort)
     )
   
   p <- ggplot2::ggplot(plot_dat,
-                       ggplot2::aes(x = .data$PlateKey, y = `50%`, group = 1, color = .data$Data)) +
+                       ggplot2::aes(x = .data$PlateKeyShort,
+                                    y = `50%`,
+                                    group = 1,
+                                    color = .data$Data,
+                                    text = .data$PlateKey)) +  # tooltip keeps full PlateKey
     ggplot2::geom_hline(yintercept = ref_center, linewidth = 0.5)
   
   for (k in sd_levels) {
@@ -152,12 +157,14 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
     )
 }
 
+
+
 # Your app option
-options(shiny.maxRequestSize = 100 * 1024^2)
+options(shiny.maxRequestSize = 500 * 1024^2)
 
 app_server <- function(input, output, session) {
   # Set once at app start
-  options(shiny.maxRequestSize = 100 * 1024^2)
+  options(shiny.maxRequestSize = 500 * 1024^2)
   
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
@@ -280,7 +287,7 @@ app_server <- function(input, output, session) {
     ggplot2::ggsave(pca_sample_type_file, plot_pca, width = 8, height = 6, dpi = 300)
     
     # PCA: RowCheck
-    avoid_SOMAmers <- foodata::load_data2()
+    avoid_SOMAmers <- foodata2::load_data2()
     avoid_prot <- avoid_SOMAmers %>%
       dplyr::pull(SeqId) %>% paste0("seq.", .) %>% stringr::str_replace_all("-", ".")
     adat_samp_tbl <- metafile$df() %>%
@@ -307,7 +314,7 @@ app_server <- function(input, output, session) {
     ggplot2::ggsave(pca_rowcheck_file, plot_samp_pca_flag, width = 8, height = 6, dpi = 300)
     
     # Levey–Jennings plots (your functions/data)
-    df_cvs_all <- foodata::load_data4()
+    df_cvs_all <- foodata2::load_data4()
     adat_header <- metafile$df2()
     levey_cal <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
     levey_calibrator_file <- file.path(plot_dir, "levey_calibrator.png")

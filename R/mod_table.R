@@ -333,7 +333,7 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
     "This is the PCA plot based on quality criteria tab. Add your code here."
     withProgress(message = 'Generating pca_sample_rowcheck...', {
     #  avoid_SOMAmers <- readxl::read_xlsx("d/v4.1_filtered_SOMAmers.xlsx")
-      avoid_SOMAmers <- foodata::load_data2()
+      avoid_SOMAmers <- foodata2::load_data2()
       avoid_prot <- avoid_SOMAmers %>%
         dplyr::pull(SeqId) %>%
         paste0("seq.",.) %>%
@@ -630,7 +630,7 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
     output$tbl_cal_cv <- DT::renderDataTable({
       withProgress(message = 'Calculating calibrator CVs...', {
 
-         df_cvs_all <- foodata::load_data4()
+         df_cvs_all <- foodata2::load_data4()
 
          df_cvs <-  file$df() %>% dplyr::filter(SampleType == "Calibrator") %>%
           dplyr::select(PlateId, starts_with("seq.")) %>%
@@ -653,7 +653,7 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
     output$levey_calibrator <- plotly::renderPlotly({
       withProgress(message = 'Generating Levey-Jennings plot for calibrator CVs...', {
       #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
-        df_cvs_all <- foodata::load_data4()
+        df_cvs_all <- foodata2::load_data4()
         adat_header<-file$df2()
 
         kk<<-adat_header
@@ -670,7 +670,7 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
 
       withProgress(message = 'Generating tbl_ks_cal...', {
       #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
-        df_cvs_all <- foodata::load_data4()
+        df_cvs_all <- foodata2::load_data4()
         df_cvs <- file$df()  %>% dplyr::filter(SampleType == "Calibrator") %>%
           dplyr::select(PlateId, starts_with("seq.")) %>%
           dplyr::group_by(PlateId) %>%
@@ -717,7 +717,7 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
       withProgress(message = 'Calculating levey_somalogic_qc...', {
 
       #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
-        df_cvs_all <- foodata::load_data4()
+        df_cvs_all <- foodata2::load_data4()
 
 
         adat_header<- file$df2()
@@ -739,7 +739,7 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
       withProgress(message = 'Calculating tbl_ks_qc...', {
 
       #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
-        df_cvs_all <- foodata::load_data4()
+        df_cvs_all <- foodata2::load_data4()
         df_cvs <- file$df()  %>% dplyr::filter(SampleType == "QC") %>%
           dplyr::select(PlateId, starts_with("seq.")) %>%
           dplyr::group_by(PlateId) %>%

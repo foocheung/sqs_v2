@@ -55,8 +55,8 @@ mod_dataInput_server <- function(id){
       if (input$dataInput_soma == 1) {
         withProgress(message = 'Uploading and Parsing Data...', {
           #  SomaDataIO::read_adat("d/CHI-23-009_v4.1_Serum.hybNorm.medNormInt.plateScale.calibrate.anmlQC.qcCheck.anmlSMP.adat")
-          foodata::load_data3()
-          ff<<-foodata::load_data3()
+          foodata2::load_data3()
+          ff<<-foodata2::load_data3()
           })
            }
 
@@ -76,7 +76,7 @@ mod_dataInput_server <- function(id){
       if (input$dataInput_soma == 1) {
         withProgress(message = 'Uploading and Parsing Data...', {
         #  SomaDataIO::parseHeader("d/CHI-23-009_v4.1_Serum.hybNorm.medNormInt.plateScale.calibrate.anmlQC.qcCheck.anmlSMP.adat")
-       foodata::load_data3B()
+       foodata2::load_data3B()
             })
       }
 
