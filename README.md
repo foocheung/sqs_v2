@@ -2,11 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-`sqs` is an R package built with the [Golem](https://thinkr-open.github.io/golem/) framework, providing a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables proteomics researchers to upload `.adat` files, compute QC metrics (e.g., per-plate CVs, PCA, Levey-Jennings plots), and generate automated HTML/PDF reports. The package integrates with `SomaDataIO` and `foodata2` for data handling and example datasets.
+`sqs` is an R package built with the [Golem](https://thinkr-open.github.io/golem/) framework, providing a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables proteomics researchers to upload `.adat` files, compute QC metrics (e.g., per-plate CVs, PCA, Levey-Jennings plots), and generate automated HTML/PDF reports. The package integrates with `SomaDataIO` for data handling.
 
 ## Features
 
-- **Data Input**: Upload SomaScan `.adat` files or use example datasets (via `foodata2::load_data3()`).
+- **Data Input**: Upload SomaScan `.adat` files).
 - **QC Metrics**: Calculate coefficient of variation (CV) statistics, PCA for sample clustering, and Levey-Jennings plots to assess assay precision using `foodata2` datasets, with support for comparison against historical plate controls and calibrators.
 - **Interactive Interface**: A modular Shiny app with tabbed panels for exploring sample summaries, visualizations, and QC results.
 - **Automated Reporting**: Generate comprehensive QC reports with tables (via `kableExtra`) and interactive plots (via `plotly`).
@@ -29,7 +29,7 @@ install.packages("devtools")
 devtools::install_github("foocheung/foodata2")
 
 # Install sqs
-devtools::install_github("your-username/sqs")
+devtools::install_github("foocheung/sqs_v2")
 ```
 
 ## Usage
@@ -87,4 +87,4 @@ If you use `sqs` in your research, please cite:
 
 ## Contact
 
-For questions, contact [Your Name] at [your-email@example.com].
+For questions, contact Foo Cheung at foocheung@yahoo.com
