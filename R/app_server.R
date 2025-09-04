@@ -5,14 +5,67 @@ library(tidyr)
 library(tibble)
 library(stringr)
 library(ggplot2)
-library(callr)
 library(rmarkdown)
 library(knitr)
 library(kableExtra)
 library(forcats)  # for factor ordering
 
-# ---- Helpers (bytes, duration, CV, Levey-Jennings, HTML inject) ----
+# ---- Docker-specific configurations ----
+# Set memory and timeout limits for Docker environment
+options(shiny.maxRequestSize = 500 * 1024^2)
+options(timeout = 600)  # 10 minutes timeout
 
+# ---- Environment validation ----
+validate_environment <- function() {
+  required_packages <- c("shiny", "dplyr", "tidyr", "tibble", "stringr", 
+                         "ggplot2", "rmarkdown", "knitr", "kableExtra", "forcats")
+  
+  missing_packages <- required_packages[!sapply(required_packages, function(pkg) {
+    requireNamespace(pkg, quietly = TRUE)
+  })]
+  
+  if (length(missing_packages) > 0) {
+    stop("Missing required packages: ", paste(missing_packages, collapse = ", "))
+  }
+  
+  # Check system dependencies for Docker
+  if (Sys.info()["sysname"] == "Linux") {
+    if (!dir.exists("/tmp")) stop("Temp directory not accessible")
+    if (!nzchar(Sys.which("pandoc"))) warning("Pandoc not found - may cause rendering issues")
+  }
+  
+  return(TRUE)
+}
+
+# ---- Memory management helper ----
+check_memory <- function(threshold_mb = 4000) {
+  tryCatch({
+    current_mem <- utils::object.size(ls(envir = .GlobalEnv))
+    if (as.numeric(current_mem) > threshold_mb * 1024^2) {
+      gc(verbose = FALSE)
+    }
+  }, error = function(e) {
+    gc(verbose = FALSE)  # Force garbage collection if memory check fails
+  })
+}
+
+# ---- Timeout wrapper for long operations ----
+timeout_wrapper <- function(expr, timeout_seconds = 300) {
+  # Set time limits
+  setTimeLimit(cpu = timeout_seconds, elapsed = timeout_seconds)
+  on.exit(setTimeLimit(cpu = Inf, elapsed = Inf), add = TRUE)
+  
+  tryCatch({
+    return(expr)
+  }, error = function(e) {
+    if (grepl("time limit", e$message, ignore.case = TRUE)) {
+      stop("Operation timed out after ", timeout_seconds, " seconds")
+    }
+    stop(e$message)
+  })
+}
+
+# ---- Helpers (bytes, duration, CV, Levey-Jennings, HTML inject) ----
 pretty_bytes <- function(bytes) {
   units <- c("B","KB","MB","GB","TB")
   if (is.na(bytes) || bytes < 1) return("0 B")
@@ -34,8 +87,8 @@ safe_cv <- function(x) {
   s / m
 }
 
-# Inject a small HTML footer with run metadata into the report
-.inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
+# Inject a small HTML footer with run metadata into the report.
+inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
   footer <- paste0(
     "\n<!-- SQS run metadata -->\n",
     "<div style='margin-top:2rem;padding-top:1rem;border-top:1px solid #ddd;",
@@ -157,69 +210,126 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
     )
 }
 
-
-
-# Your app option
-options(shiny.maxRequestSize = 500 * 1024^2)
-
+# ---- Main app server ----
 app_server <- function(input, output, session) {
-  # Set once at app start
+  # Validate environment at startup
+  tryCatch({
+    validate_environment()
+  }, error = function(e) {
+    showNotification(paste("Environment validation failed:", e$message), 
+                     type = "error", duration = NULL)
+    stop(e$message)
+  })
+  
+  # Set Docker-optimized options
   options(shiny.maxRequestSize = 500 * 1024^2)
+  options(timeout = 600)
   
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
   callModule(mod_table_server, "table_ui_1", metafile)
   
-  # ---- Report download (HTML; no TinyTeX needed) ----
+  # ---- Report download (HTML; Docker-optimized) ----
   output$downloadReport <- downloadHandler(
     filename = function() paste0("SomaScan_QC_Report_", Sys.Date(), ".html"),
-    content  = function(file) {
-      
+    content = function(file) {
       start_time <- Sys.time()
       success <- FALSE
+      error_msg <- NULL
       
       on.exit({
         end_time <- Sys.time()
-        dur  <- pretty_duration(difftime(end_time, start_time, units = "secs"))
+        dur <- pretty_duration(difftime(end_time, start_time, units = "secs"))
         size <- if (file.exists(file)) pretty_bytes(file.info(file)$size) else "0 B"
-        shiny::showNotification(
-          paste0("Report ", if (success) "completed" else "failed", ": ", dur, " · ", size),
-          type = if (success) "message" else "error",
-          duration = 10
-        )
+        
+        if (!is.null(error_msg)) {
+          shiny::showNotification(
+            paste0("Report failed: ", error_msg, " (", dur, ")"),
+            type = "error",
+            duration = 15
+          )
+        } else {
+          shiny::showNotification(
+            paste0("Report ", if (success) "completed" else "failed", ": ", dur, " · ", size),
+            type = if (success) "message" else "error",
+            duration = 10
+          )
+        }
       }, add = TRUE)
       
-      shiny::withProgress(message = "Generating HTML report…", value = 0, {
-        # Workspace
-        timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
-        temp_dir  <- file.path(tempdir(), paste0("somascan_", timestamp))
-        dir.create(temp_dir, showWarnings = FALSE, recursive = TRUE)
-        plot_dir  <- file.path(temp_dir, "plots")
-        dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
-        rmd_file  <- file.path(temp_dir, "report.Rmd")
+      tryCatch({
+        # Memory check before starting
+        check_memory()
         
-        # Validate inputs
-        shiny::incProgress(0.15, detail = "Validating input…")
-        if (is.null(metafile$df()) || is.null(metafile$df2())) {
-          stop("Input data is missing. Please ensure data is loaded correctly.")
-        }
-        
-        # Plots
-        shiny::incProgress(0.35, detail = "Generating plots…")
-        plot_files <- generate_plots(metafile, plot_dir)
-        
-        # Rmd content
-        shiny::incProgress(0.6, detail = "Preparing R Markdown…")
-        rmd_content <- generate_rmd_report_html(metafile, plot_files, temp_dir)
-        writeLines(rmd_content, rmd_file)
-        
-        # Render to self-contained HTML
-        shiny::incProgress(0.85, detail = "Rendering HTML…")
-        callr::r(
-          function(rmd_file, out_file) {
+        shiny::withProgress(message = "Generating HTML report…", value = 0, {
+          # Workspace setup with better error handling
+          timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
+          temp_dir <- file.path(tempdir(), paste0("somascan_", timestamp))
+          
+          # Ensure temp directory creation with proper permissions
+          if (!dir.create(temp_dir, showWarnings = FALSE, recursive = TRUE, mode = "0755")) {
+            stop("Failed to create temporary directory: ", temp_dir)
+          }
+          
+          plot_dir <- file.path(temp_dir, "plots")
+          if (!dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE, mode = "0755")) {
+            stop("Failed to create plot directory: ", plot_dir)
+          }
+          
+          rmd_file <- file.path(temp_dir, "report.Rmd")
+          
+          # Validate inputs with better error messages
+          shiny::incProgress(0.15, detail = "Validating input…")
+          if (is.null(metafile$df()) || is.null(metafile$df2())) {
+            stop("Input data is missing. Please ensure data is loaded correctly.")
+          }
+          
+          if (nrow(metafile$df()) == 0) {
+            stop("Input data is empty.")
+          }
+          
+          # Generate plots with timeout protection
+          shiny::incProgress(0.35, detail = "Generating plots…")
+          plot_files <- timeout_wrapper({
+            generate_plots(metafile, plot_dir)
+          }, timeout_seconds = 300)
+          
+          # Verify plots were created
+          for (plot_name in names(plot_files)) {
+            if (!file.exists(plot_files[[plot_name]])) {
+              stop("Failed to create plot: ", plot_name)
+            }
+          }
+          
+          # Memory check after plots
+          check_memory()
+          
+          # Generate R Markdown content
+          shiny::incProgress(0.6, detail = "Preparing R Markdown…")
+          rmd_content <- timeout_wrapper({
+            generate_rmd_report_html(metafile, plot_files, temp_dir)
+          }, timeout_seconds = 120)
+          
+          # Write R Markdown file
+          tryCatch({
+            writeLines(rmd_content, rmd_file)
+          }, error = function(e) {
+            stop("Failed to write R Markdown file: ", e$message)
+          })
+          
+          # Render to HTML - DIRECT RENDERING (no callr)
+          shiny::incProgress(0.85, detail = "Rendering HTML…")
+          
+          # Set pandoc options for Docker environment
+          if (nzchar(Sys.which("pandoc"))) {
+            pandoc_path <- dirname(Sys.which("pandoc"))
+            Sys.setenv(RSTUDIO_PANDOC = pandoc_path)
+          }
+          
+          timeout_wrapper({
             rmarkdown::render(
               input = rmd_file,
-              output_file = out_file,
+              output_file = file,
               output_format = rmarkdown::html_document(
                 toc = TRUE,
                 number_sections = TRUE,
@@ -229,29 +339,37 @@ app_server <- function(input, output, session) {
                 self_contained = TRUE
               ),
               quiet = TRUE,
-              envir  = new.env(parent = globalenv())
+              envir = new.env(parent = globalenv())
             )
-          },
-          args = list(rmd_file = rmd_file, out_file = file)
-        )
+          }, timeout_seconds = 300)
+          
+          # Verify HTML file was created
+          if (!file.exists(file) || file.info(file)$size == 0) {
+            stop("HTML report was not generated or is empty")
+          }
+          
+          # Mark success and compute final metrics
+          success <- TRUE
+          end_time <- Sys.time()
+          dur <- pretty_duration(difftime(end_time, start_time, units = "secs"))
+          size <- pretty_bytes(file.info(file)$size)
+          
+          # Inject metadata footer into the generated HTML
+          run_stamp <- format(end_time, "%Y-%m-%d %H:%M:%S %Z")
+          try(inject_report_footer(html_path = file,
+                                   run_time = run_stamp,
+                                   duration_str = dur,
+                                   size_str = size),
+              silent = TRUE)
+          
+          # Progress UI
+          shiny::setProgress(1, message = paste0("Done in ", dur, " · ", size),
+                             detail = "Click to download.")
+        })
         
-        # Mark success and compute final metrics
-        success <- TRUE
-        end_time <- Sys.time()
-        dur  <- pretty_duration(difftime(end_time, start_time, units = "secs"))
-        size <- if (file.exists(file)) pretty_bytes(file.info(file)$size) else "0 B"
-        
-        # Inject metadata footer into the generated HTML
-        run_stamp <- format(end_time, "%Y-%m-%d %H:%M:%S %Z")
-        try(.inject_report_footer(html_path = file,
-                                  run_time = run_stamp,
-                                  duration_str = dur,
-                                  size_str = size),
-            silent = TRUE)
-        
-        # Progress UI
-        shiny::setProgress(1, message = paste0("Done in ", dur, " · ", size),
-                           detail = "Click to download.")
+      }, error = function(e) {
+        error_msg <<- e$message
+        stop(e$message)
       })
     }
   )
@@ -259,7 +377,7 @@ app_server <- function(input, output, session) {
   # ---- helpers you already have elsewhere ----
   # generate_plots <- function(metafile, plot_dir) { ... }
   # generate_rmd_report_html <- function(metafile, plot_files, temp_dir) { ... }
-
+  
   
   # ---- helpers ----
   
