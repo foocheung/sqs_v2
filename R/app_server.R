@@ -1,3 +1,4 @@
+# =========================================
 # Required packages
 library(shiny)
 library(dplyr)
@@ -8,64 +9,73 @@ library(ggplot2)
 library(rmarkdown)
 library(knitr)
 library(kableExtra)
-library(forcats)  # for factor ordering
+library(forcats)
 
-# ---- Docker-specific configurations ----
-# Set memory and timeout limits for Docker environment
-options(shiny.maxRequestSize = 500 * 1024^2)
-options(timeout = 600)  # 10 minutes timeout
+# =========================================
+# ---- Docker / Proxy friendly defaults ----
+# NOTE: 504s usually come from the reverse proxy timing out while the R
+# process works. Keep operations chatty so you can see where it stalls.
+options(shiny.maxRequestSize = 500 * 1024^2)   # 500 MB uploads
+options(timeout = 600)                         # 10 minutes global R timeout
+
+# Toggle super-verbose debugging with SHINY_DEBUG=true in Docker env
+DEBUG <- tolower(Sys.getenv("SHINY_DEBUG", "true")) %in% c("1","true","t","yes","y")
+
+# Central log file (persists across the session; inspect with `docker logs`)
+LOG_FILE <- file.path("/tmp", sprintf("shiny-debug-%s.log", Sys.getpid()))
+
+# Helper: safe string builder
+.sprintf <- function(fmt, ...) paste0(sprintf(fmt, ...))
+
+# Helper: write to console + log + (optionally) UI
+log_msg <- function(session = NULL, ..., type = c("info","warn","error"), notify = DEBUG) {
+  type <- match.arg(type)
+  msg  <- paste(format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z"), "-", .sprintf(...))
+  # Console + file
+  cat(msg, "\n")
+  try(cat(msg, "\n", file = LOG_FILE, append = TRUE), silent = TRUE)
+  # UI notification if desired
+  if (!is.null(session) && isTRUE(notify)) {
+    ntype <- switch(type, info = "message", warn = "warning", error = "error")
+    try(shiny::showNotification(msg, type = ntype, duration = 8), silent = TRUE)
+  }
+  invisible(msg)
+}
+
+# Dump a small environment summary (great for Docker debugging)
+dump_env_summary <- function(session = NULL) {
+  log_msg(session, "R.version: %s", R.version.string)
+  log_msg(session, "Platform: %s", paste(R.version$platform, R.version$arch, R.version$os))
+  log_msg(session, "getwd(): %s | tempdir(): %s", getwd(), tempdir())
+  log_msg(session, "pandoc: %s", Sys.which("pandoc"))
+  log_msg(session, "RSTUDIO_PANDOC: %s", Sys.getenv("RSTUDIO_PANDOC", unset = "<unset>"))
+  log_msg(session, "LibPaths: %s", paste(.libPaths(), collapse = " | "))
+}
 
 # ---- Environment validation ----
-validate_environment <- function() {
-  required_packages <- c("shiny", "dplyr", "tidyr", "tibble", "stringr", 
-                         "ggplot2", "rmarkdown", "knitr", "kableExtra", "forcats")
-  
+validate_environment <- function(session = NULL) {
+  required_packages <- c(
+    "shiny","dplyr","tidyr","tibble","stringr",
+    "ggplot2","rmarkdown","knitr","kableExtra","forcats"
+  )
   missing_packages <- required_packages[!sapply(required_packages, function(pkg) {
     requireNamespace(pkg, quietly = TRUE)
   })]
-  
   if (length(missing_packages) > 0) {
+    log_msg(session, "Missing required packages: %s", paste(missing_packages, collapse = ", "),
+            type = "error")
     stop("Missing required packages: ", paste(missing_packages, collapse = ", "))
   }
   
-  # Check system dependencies for Docker
-  if (Sys.info()["sysname"] == "Linux") {
-    if (!dir.exists("/tmp")) stop("Temp directory not accessible")
-    if (!nzchar(Sys.which("pandoc"))) warning("Pandoc not found - may cause rendering issues")
+  if (Sys.info()[["sysname"]] == "Linux") {
+    if (!dir.exists("/tmp")) stop("Temp directory /tmp not accessible")
+    if (!nzchar(Sys.which("pandoc")))
+      log_msg(session, "Pandoc not found — HTML rendering may fail; install pandoc.", type = "warn")
   }
-  
-  return(TRUE)
+  TRUE
 }
 
-# ---- Memory management helper ----
-check_memory <- function(threshold_mb = 4000) {
-  tryCatch({
-    current_mem <- utils::object.size(ls(envir = .GlobalEnv))
-    if (as.numeric(current_mem) > threshold_mb * 1024^2) {
-      gc(verbose = FALSE)
-    }
-  }, error = function(e) {
-    gc(verbose = FALSE)  # Force garbage collection if memory check fails
-  })
-}
-
-# ---- Timeout wrapper for long operations ----
-timeout_wrapper <- function(expr, timeout_seconds = 300) {
-  # Set time limits
-  setTimeLimit(cpu = timeout_seconds, elapsed = timeout_seconds)
-  on.exit(setTimeLimit(cpu = Inf, elapsed = Inf), add = TRUE)
-  
-  tryCatch({
-    return(expr)
-  }, error = function(e) {
-    if (grepl("time limit", e$message, ignore.case = TRUE)) {
-      stop("Operation timed out after ", timeout_seconds, " seconds")
-    }
-    stop(e$message)
-  })
-}
-
-# ---- Helpers (bytes, duration, CV, Levey-Jennings, HTML inject) ----
+# ---- Memory helpers ----
 pretty_bytes <- function(bytes) {
   units <- c("B","KB","MB","GB","TB")
   if (is.na(bytes) || bytes < 1) return("0 B")
@@ -80,6 +90,13 @@ pretty_duration <- function(sec) {
   sprintf("%dm %.1fs", mins, secs)
 }
 
+check_memory <- function(session = NULL, label = "") {
+  # This is coarse; CRAN-safe and Docker-safe.
+  mem <- sum(gc()[,2])  # MB used (approx)
+  log_msg(session, "GC/Memory%s: %.1f MB used", if (nzchar(label)) paste0(" [", label, "]") else "", mem)
+  invisible(mem)
+}
+
 safe_cv <- function(x) {
   m <- mean(x, na.rm = TRUE)
   s <- stats::sd(x, na.rm = TRUE)
@@ -87,7 +104,25 @@ safe_cv <- function(x) {
   s / m
 }
 
-# Inject a small HTML footer with run metadata into the report.
+# ---- Timeout wrapper for long operations ----
+timeout_wrapper <- function(expr, timeout_seconds = 300, session = NULL, step = "step") {
+  t0 <- Sys.time()
+  setTimeLimit(cpu = timeout_seconds, elapsed = timeout_seconds)
+  on.exit(setTimeLimit(cpu = Inf, elapsed = Inf), add = TRUE)
+  withCallingHandlers(
+    expr,
+    warning = function(w) {
+      log_msg(session, "[%s] WARNING: %s", step, conditionMessage(w), type = "warn")
+      invokeRestart("muffleWarning")
+    },
+    message = function(m) {
+      log_msg(session, "[%s] %s", step, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+}
+
+# ---- HTML footer inject (unchanged) ----
 inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
   footer <- paste0(
     "\n<!-- SQS run metadata -->\n",
@@ -98,14 +133,12 @@ inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
     "<strong>File size:</strong> ", size_str, "\n",
     "</div>\n"
   )
-  
   txt <- tryCatch(readLines(html_path, warn = FALSE, encoding = "UTF-8"),
                   error = function(e) NULL)
   if (is.null(txt)) {
     cat(footer, file = html_path, append = TRUE)
     return(invisible(TRUE))
   }
-  
   body_idx <- tail(grep("</body>", txt, ignore.case = TRUE), 1)
   if (length(body_idx) == 1L && is.finite(body_idx)) {
     txt <- append(txt, values = footer, after = body_idx - 1)
@@ -116,14 +149,13 @@ inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
   invisible(TRUE)
 }
 
-# Namespaced, robust Levey–Jennings plot (median-centered by default)
+# ---- Levey–Jennings plot (unchanged logic; added logs in caller) ----
 plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
                        sample_type = "QC",
                        sd_levels = c(1, 2),
                        center = c("median", "mean"),
                        y_lab = "Per-plate median CV (%)") {
   center <- base::match.arg(center)
-  
   df_cvs_per_plate <- adat_tbl |>
     dplyr::filter(.data$SampleType == sample_type) |>
     dplyr::select(.data$PlateId, tidyselect::starts_with("seq.")) |>
@@ -172,10 +204,11 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
     dplyr::arrange(.data$ExpDate, .data$PlateId) |>
     dplyr::mutate(
       Data = factor(.data$Data, levels = c("Reference", "Sample")),
-      PlateKey = as.character(.data$PlateKey),  # ensure character
+      PlateKey = as.character(.data$PlateKey),
       PlateKeyShort = dplyr::if_else(
         nchar(.data$PlateKey) > 80,
-        paste0(substr(.data$PlateKey, 1, 40), "...", substr(.data$PlateKey, nchar(.data$PlateKey) - 39, nchar(.data$PlateKey))),
+        paste0(substr(.data$PlateKey, 1, 40), "...",
+               substr(.data$PlateKey, nchar(.data$PlateKey) - 39, nchar(.data$PlateKey))),
         .data$PlateKey
       ),
       PlateKeyShort = forcats::fct_inorder(PlateKeyShort)
@@ -186,7 +219,7 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
                                     y = `50%`,
                                     group = 1,
                                     color = .data$Data,
-                                    text = .data$PlateKey)) +  # tooltip keeps full PlateKey
+                                    text = .data$PlateKey)) +
     ggplot2::geom_hline(yintercept = ref_center, linewidth = 0.5)
   
   for (k in sd_levels) {
@@ -210,123 +243,129 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
     )
 }
 
-# ---- Main app server ----
+# =========================================
+# ---- Main Shiny server ----
 app_server <- function(input, output, session) {
+  
+  log_msg(session, "DEBUG=%s | Log file: %s", as.character(DEBUG), LOG_FILE)
+  dump_env_summary(session)
+  
   # Validate environment at startup
   tryCatch({
-    validate_environment()
+    validate_environment(session)
+    log_msg(session, "Environment validation: OK")
   }, error = function(e) {
-    showNotification(paste("Environment validation failed:", e$message), 
+    log_msg(session, "Environment validation failed: %s", e$message, type = "error")
+    showNotification(paste("Environment validation failed:", e$message),
                      type = "error", duration = NULL)
     stop(e$message)
   })
   
-  # Set Docker-optimized options
-  options(shiny.maxRequestSize = 500 * 1024^2)
-  options(timeout = 600)
+  # If pandoc is present, set RSTUDIO_PANDOC to its folder (helps in Docker)
+  if (nzchar(Sys.which("pandoc"))) {
+    Sys.setenv(RSTUDIO_PANDOC = dirname(Sys.which("pandoc")))
+    log_msg(session, "RSTUDIO_PANDOC set to %s", Sys.getenv("RSTUDIO_PANDOC"))
+  }
   
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
   callModule(mod_table_server, "table_ui_1", metafile)
   
+  # =========================================
   # ---- Report download (HTML; Docker-optimized) ----
   output$downloadReport <- downloadHandler(
     filename = function() paste0("SomaScan_QC_Report_", Sys.Date(), ".html"),
-    content = function(file) {
+    content  = function(file) {
       start_time <- Sys.time()
-      success <- FALSE
-      error_msg <- NULL
+      success    <- FALSE
+      error_msg  <- NULL
       
       on.exit({
         end_time <- Sys.time()
-        dur <- pretty_duration(difftime(end_time, start_time, units = "secs"))
-        size <- if (file.exists(file)) pretty_bytes(file.info(file)$size) else "0 B"
-        
+        dur      <- pretty_duration(difftime(end_time, start_time, units = "secs"))
+        size     <- if (file.exists(file)) pretty_bytes(file.info(file)$size) else "0 B"
         if (!is.null(error_msg)) {
-          shiny::showNotification(
-            paste0("Report failed: ", error_msg, " (", dur, ")"),
-            type = "error",
-            duration = 15
-          )
+          log_msg(session, "FINAL: Report failed after %s: %s", dur, error_msg, type = "error")
+          shiny::showNotification(paste0("Report failed: ", error_msg, " (", dur, ")"),
+                                  type = "error", duration = 20)
         } else {
-          shiny::showNotification(
-            paste0("Report ", if (success) "completed" else "failed", ": ", dur, " · ", size),
-            type = if (success) "message" else "error",
-            duration = 10
-          )
+          log_msg(session, "FINAL: Report completed in %s · %s", dur, size)
+          shiny::showNotification(paste0("Report completed: ", dur, " · ", size),
+                                  type = "message", duration = 10)
         }
       }, add = TRUE)
       
+      # Wrap the whole pipeline to capture warnings/messages/timing per step
       tryCatch({
-        # Memory check before starting
-        check_memory()
+        check_memory(session, "start")
         
         shiny::withProgress(message = "Generating HTML report…", value = 0, {
-          # Workspace setup with better error handling
+          # 1) Workspace setup
+          shiny::incProgress(0.05, detail = "Preparing workspace…")
+          t0 <- Sys.time()
           timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
-          temp_dir <- file.path(tempdir(), paste0("somascan_", timestamp))
+          temp_dir  <- file.path(tempdir(), paste0("somascan_", timestamp))
           
-          # Ensure temp directory creation with proper permissions
           if (!dir.create(temp_dir, showWarnings = FALSE, recursive = TRUE, mode = "0755")) {
             stop("Failed to create temporary directory: ", temp_dir)
           }
-          
           plot_dir <- file.path(temp_dir, "plots")
           if (!dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE, mode = "0755")) {
             stop("Failed to create plot directory: ", plot_dir)
           }
-          
           rmd_file <- file.path(temp_dir, "report.Rmd")
+          log_msg(session, "Workspace ready: %s | plots: %s", temp_dir, plot_dir)
           
-          # Validate inputs with better error messages
+          # 2) Validate inputs
           shiny::incProgress(0.15, detail = "Validating input…")
           if (is.null(metafile$df()) || is.null(metafile$df2())) {
-            stop("Input data is missing. Please ensure data is loaded correctly.")
+            stop("Input data is missing. Ensure data are loaded (metafile$df/df2).")
           }
+          if (nrow(metafile$df()) == 0) stop("Input data is empty.")
+          log_msg(session, "Input rows: %s | cols: %s",
+                  nrow(metafile$df()), ncol(metafile$df()))
           
-          if (nrow(metafile$df()) == 0) {
-            stop("Input data is empty.")
-          }
-          
-          # Generate plots with timeout protection
+          # 3) Generate plots (can be slow)
           shiny::incProgress(0.35, detail = "Generating plots…")
           plot_files <- timeout_wrapper({
-            generate_plots(metafile, plot_dir)
-          }, timeout_seconds = 300)
+            generate_plots(metafile, plot_dir, session = session)
+          }, timeout_seconds = 300, session = session, step = "generate_plots")
           
-          # Verify plots were created
-          for (plot_name in names(plot_files)) {
-            if (!file.exists(plot_files[[plot_name]])) {
-              stop("Failed to create plot: ", plot_name)
-            }
+          # Verify plots exist
+          for (nm in names(plot_files)) {
+            ok <- file.exists(plot_files[[nm]])
+            log_msg(session, "Plot check: %s => %s", nm, if (ok) "OK" else "MISSING", 
+                    type = if (ok) "info" else "error")
+            if (!ok) stop("Failed to create plot: ", nm)
           }
+          check_memory(session, "after plots")
+          log_msg(session, "Plot step took %s",
+                  pretty_duration(difftime(Sys.time(), t0, units = "secs")))
           
-          # Memory check after plots
-          check_memory()
-          
-          # Generate R Markdown content
+          # 4) Build Rmd content
           shiny::incProgress(0.6, detail = "Preparing R Markdown…")
+          t1 <- Sys.time()
           rmd_content <- timeout_wrapper({
             generate_rmd_report_html(metafile, plot_files, temp_dir)
-          }, timeout_seconds = 120)
+          }, timeout_seconds = 120, session = session, step = "generate_rmd_report_html")
           
-          # Write R Markdown file
-          tryCatch({
-            writeLines(rmd_content, rmd_file)
-          }, error = function(e) {
-            stop("Failed to write R Markdown file: ", e$message)
-          })
+          # Write Rmd
+          tryCatch(writeLines(rmd_content, rmd_file),
+                   error = function(e) stop("Failed to write Rmd: ", e$message))
+          log_msg(session, "Rmd written: %s (%s bytes)", rmd_file,
+                  pretty_bytes(file.info(rmd_file)$size))
           
-          # Render to HTML - DIRECT RENDERING (no callr)
+          # 5) Render HTML
           shiny::incProgress(0.85, detail = "Rendering HTML…")
+          t2 <- Sys.time()
           
-          # Set pandoc options for Docker environment
           if (nzchar(Sys.which("pandoc"))) {
-            pandoc_path <- dirname(Sys.which("pandoc"))
-            Sys.setenv(RSTUDIO_PANDOC = pandoc_path)
+            Sys.setenv(RSTUDIO_PANDOC = dirname(Sys.which("pandoc")))
+          } else {
+            log_msg(session, "Pandoc not found — attempting rmarkdown render anyway", type = "warn")
           }
           
-          timeout_wrapper({
+          out_path <- timeout_wrapper({
             rmarkdown::render(
               input = rmd_file,
               output_file = file,
@@ -338,57 +377,58 @@ app_server <- function(input, output, session) {
                 highlight = "tango",
                 self_contained = TRUE
               ),
-              quiet = TRUE,
-              envir = new.env(parent = globalenv())
+              quiet = FALSE,  # in DEBUG we want to see messages
+              envir  = new.env(parent = globalenv())
             )
-          }, timeout_seconds = 300)
+          }, timeout_seconds = 300, session = session, step = "rmarkdown::render")
           
-          # Verify HTML file was created
+          log_msg(session, "Render returned path: %s", out_path)
+          
+          # Verify output exists and is non-empty
           if (!file.exists(file) || file.info(file)$size == 0) {
             stop("HTML report was not generated or is empty")
           }
           
-          # Mark success and compute final metrics
-          success <- TRUE
+          # 6) Post-process & finish
+          success  <- TRUE
           end_time <- Sys.time()
-          dur <- pretty_duration(difftime(end_time, start_time, units = "secs"))
-          size <- pretty_bytes(file.info(file)$size)
+          dur      <- pretty_duration(difftime(end_time, start_time, units = "secs"))
+          size     <- pretty_bytes(file.info(file)$size)
+          log_msg(session, "HTML ready: %s · %s (took %s)", file, size, dur)
           
-          # Inject metadata footer into the generated HTML
           run_stamp <- format(end_time, "%Y-%m-%d %H:%M:%S %Z")
-          try(inject_report_footer(html_path = file,
-                                   run_time = run_stamp,
-                                   duration_str = dur,
-                                   size_str = size),
-              silent = TRUE)
+          try(inject_report_footer(file, run_stamp, dur, size), silent = TRUE)
           
-          # Progress UI
           shiny::setProgress(1, message = paste0("Done in ", dur, " · ", size),
                              detail = "Click to download.")
         })
         
       }, error = function(e) {
         error_msg <<- e$message
+        log_msg(session, "ERROR in downloadReport: %s", e$message, type = "error")
         stop(e$message)
       })
     }
   )
   
+  # =========================================
   # ---- helpers you already have elsewhere ----
-  # generate_plots <- function(metafile, plot_dir) { ... }
-  # generate_rmd_report_html <- function(metafile, plot_files, temp_dir) { ... }
+  # NOTE: I added `session` as an optional argument so we can log messages
+  # from inside the helpers as well.
   
-  
-  # ---- helpers ----
-  
-  # Generate and save plots
-  generate_plots <- function(metafile, plot_dir) {
+  generate_plots <- function(metafile, plot_dir, session = NULL) {
+    t0 <- Sys.time()
+    log_msg(session, "[generate_plots] START -> plot_dir=%s", plot_dir)
+    
     # PCA: Sample Type
     pca_dat <- metafile$df() %>% dplyr::select(starts_with("seq."))
+    log_msg(session, "[generate_plots] PCA matrix dims: %s x %s",
+            nrow(pca_dat), ncol(pca_dat))
     pca_res <- prcomp(pca_dat, scale = TRUE)
     pca_scores <- as.data.frame(pca_res$x)
     plot_dat <- cbind(
-      metafile$df()[, c("SampleType", "PlateId", "SampleId", "AssayNotes", "SampleNotes", "TimePoint", "SampleGroup")],
+      metafile$df()[, c("SampleType", "PlateId", "SampleId", "AssayNotes",
+                        "SampleNotes", "TimePoint", "SampleGroup")],
       pca_scores
     ) %>% dplyr::mutate(HoverText = paste0("PlateId: ", PlateId, "<br>SampleId: ", SampleId))
     variance_explained_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
@@ -403,6 +443,8 @@ app_server <- function(input, output, session) {
       ggplot2::theme_minimal()
     pca_sample_type_file <- file.path(plot_dir, "pca_sample_type.png")
     ggplot2::ggsave(pca_sample_type_file, plot_pca, width = 8, height = 6, dpi = 300)
+    log_msg(session, "[generate_plots] Wrote %s (%s)", pca_sample_type_file,
+            pretty_bytes(file.info(pca_sample_type_file)$size))
     
     # PCA: RowCheck
     avoid_SOMAmers <- foodata2::load_data2()
@@ -412,14 +454,16 @@ app_server <- function(input, output, session) {
       dplyr::filter(SampleType == "Sample") %>%
       dplyr::select(PlateId, SampleId, RowCheck, starts_with("seq.")) %>%
       dplyr::select(!all_of(avoid_prot))
-    pca_dat <- metafile$df() %>% dplyr::filter(SampleType == "Sample") %>%
+    pca_dat2 <- metafile$df() %>% dplyr::filter(SampleType == "Sample") %>%
       dplyr::select(starts_with("seq."))
-    pca_res <- prcomp(pca_dat, scale = TRUE)
-    pca_scores <- as.data.frame(pca_res$x)
-    plot_samp_dat <- cbind(adat_samp_tbl[, c("PlateId", "SampleId", "RowCheck")], pca_scores) %>%
+    log_msg(session, "[generate_plots] PCA(RowCheck) dims: %s x %s",
+            nrow(pca_dat2), ncol(pca_dat2))
+    pca_res2 <- prcomp(pca_dat2, scale = TRUE)
+    pca_scores2 <- as.data.frame(pca_res2$x)
+    plot_samp_dat <- cbind(adat_samp_tbl[, c("PlateId", "SampleId", "RowCheck")], pca_scores2) %>%
       dplyr::mutate(HoverText = paste0("PlateId: ", PlateId, "<br>SampleId: ", SampleId))
-    variance_explained_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
-    variance_explained_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
+    variance_explained_pc1 <- round(pca_res2$sdev[1]^2 / sum(pca_res2$sdev^2) * 100, 2)
+    variance_explained_pc2 <- round(pca_res2$sdev[2]^2 / sum(pca_res2$sdev^2) * 100, 2)
     plot_samp_pca_flag <- ggplot2::ggplot(plot_samp_dat, ggplot2::aes(x = PC1, y = PC2, color = RowCheck)) +
       ggplot2::geom_point() +
       ggplot2::labs(
@@ -430,17 +474,26 @@ app_server <- function(input, output, session) {
       ggplot2::theme_minimal()
     pca_rowcheck_file <- file.path(plot_dir, "pca_sample_rowcheck.png")
     ggplot2::ggsave(pca_rowcheck_file, plot_samp_pca_flag, width = 8, height = 6, dpi = 300)
+    log_msg(session, "[generate_plots] Wrote %s (%s)", pca_rowcheck_file,
+            pretty_bytes(file.info(pca_rowcheck_file)$size))
     
-    # Levey–Jennings plots (your functions/data)
-    df_cvs_all <- foodata2::load_data4()
+    # Levey–Jennings plots
+    df_cvs_all  <- foodata2::load_data4()
     adat_header <- metafile$df2()
     levey_cal <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
     levey_calibrator_file <- file.path(plot_dir, "levey_calibrator.png")
     ggplot2::ggsave(levey_calibrator_file, levey_cal, width = 8, height = 6, dpi = 300)
+    log_msg(session, "[generate_plots] Wrote %s (%s)", levey_calibrator_file,
+            pretty_bytes(file.info(levey_calibrator_file)$size))
     
     levey_qc <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "QC")
     levey_somalogic_qc_file <- file.path(plot_dir, "levey_somalogic_qc.png")
     ggplot2::ggsave(levey_somalogic_qc_file, levey_qc, width = 8, height = 6, dpi = 300)
+    log_msg(session, "[generate_plots] Wrote %s (%s)", levey_somalogic_qc_file,
+            pretty_bytes(file.info(levey_somalogic_qc_file)$size))
+    
+    log_msg(session, "[generate_plots] DONE in %s",
+            pretty_duration(difftime(Sys.time(), t0, units = "secs")))
     
     list(
       pca_sample_type     = pca_sample_type_file,
@@ -450,8 +503,8 @@ app_server <- function(input, output, session) {
     )
   }
   
-  # Build Rmd content for HTML (no LaTeX; includes fixes + NA-safe CVs + robust SOMAmers)
   generate_rmd_report_html <- function(metafile, plot_files, temp_dir) {
+    log_msg(session, "[generate_rmd_report_html] START -> temp_dir=%s", temp_dir)
     
     # ---- helpers for CVs ----
     safe_cv <- function(x) {
@@ -511,21 +564,18 @@ app_server <- function(input, output, session) {
     adat_header <- metafile$df2()
     keys <- names(adat_header$Header.Meta$HEADER)
     
-    # Plate scale (FIX: non-syntactic name "Plate Check")
+    # Plate scale
     df_plate_scale <- {
       keys_scalar <- grep("^PlateScale_Scalar", keys, value = TRUE)
       keys_pass   <- grep("^PlateScale_PassFlag", keys, value = TRUE)
-      
       pass <- data.frame(`Plate Check` = unlist(adat_header$Header.Meta$HEADER[keys_pass]),
                          check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^PlateScale_PassFlag_", "", Plate))
-      
       scalar <- data.frame(Value = unlist(adat_header$Header.Meta$HEADER[keys_scalar]),
                            check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^PlateScale_Scalar_", "", Plate))
-      
       dplyr::inner_join(pass, scalar, by = "Plate") %>%
         dplyr::transmute(
           Plate,
@@ -535,21 +585,18 @@ app_server <- function(input, output, session) {
         )
     }
     
-    # Calibrator percent in tails (FIX: "Plate Check")
+    # Calibrator percent in tails
     df_cal_perc_tails <- {
       keys_pct <- grep("^CalPlateTailPercent", keys, value = TRUE)
       keys_tst <- grep("^CalPlateTailTest",    keys, value = TRUE)
-      
       test <- data.frame(`Plate Check` = unlist(adat_header$Header.Meta$HEADER[keys_tst]),
                          check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
-      
       pct <- data.frame(Value = unlist(adat_header$Header.Meta$HEADER[keys_pct]),
                         check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
-      
       dplyr::inner_join(test, pct, by = "Plate") %>%
         dplyr::transmute(
           Plate,
@@ -559,7 +606,7 @@ app_server <- function(input, output, session) {
         )
     }
     
-    # SOMAmers in tails — robust to missing FLAG/PASS
+    # SOMAmers in tails (robust)
     df_SOMAmers_tails <- data.frame(
       "SeqId"            = adat_header$Col.Meta$SeqId,
       "EntrezGeneSymbol" = adat_header$Col.Meta$EntrezGeneSymbol,
@@ -578,7 +625,7 @@ app_server <- function(input, output, session) {
       `Total` = n_total
     )
     
-    # --- Calibrator CVs (per plate) — NA safe ---
+    # Calibrator CVs
     df_cvs <- metafile$df() %>%
       dplyr::filter(SampleType == "Calibrator") %>%
       dplyr::mutate(dplyr::across(dplyr::starts_with("seq."), ~ suppressWarnings(as.numeric(.)))) %>%
@@ -595,7 +642,7 @@ app_server <- function(input, output, session) {
         .groups = "drop"
       )
     
-    # --- QC CVs (overall; joined with lot) — NA safe ---
+    # QC CVs
     df_cvs_qc <- metafile$df() %>%
       dplyr::filter(SampleType == "QC") %>%
       dplyr::mutate(dplyr::across(dplyr::starts_with("seq."), ~ suppressWarnings(as.numeric(.)))) %>%
@@ -617,7 +664,7 @@ app_server <- function(input, output, session) {
       dplyr::bind_cols(., df_cvs_qc) %>%
       dplyr::rename(`QC Lot` = Barcode)
     
-    # Save for Rmd
+    # Save artifacts (so we can inspect them in Docker if render fails)
     saveRDS(samp_summary,      file.path(temp_dir, "samp_summary.rds"))
     saveRDS(flagged_samples,   file.path(temp_dir, "flagged_samples.rds"))
     saveRDS(med_norm_summary,  file.path(temp_dir, "med_norm_summary.rds"))
@@ -627,8 +674,9 @@ app_server <- function(input, output, session) {
     saveRDS(somamers_summary,  file.path(temp_dir, "somamers_summary.rds"))
     saveRDS(df_cvs,            file.path(temp_dir, "df_cvs.rds"))
     saveRDS(qc_cv_summary,     file.path(temp_dir, "qc_cv_summary.rds"))
+    log_msg(session, "[generate_rmd_report_html] Saved intermediate RDS files to %s", temp_dir)
     
-    # Rmd body (HTML)
+    # Construct the Rmd body (unchanged from your logic)
     c(
       '---',
       'title: "SomaScan Assay Quality Statement (SQS)"',
@@ -729,4 +777,9 @@ app_server <- function(input, output, session) {
       paste0('![](', plot_files$levey_somalogic_qc, ')')
     )
   }
+  
+  # When the session ends, tell us where to look for logs
+  session$onSessionEnded(function() {
+    log_msg(NULL, "Session ended. Log file remains at: %s", LOG_FILE)
+  })
 }
