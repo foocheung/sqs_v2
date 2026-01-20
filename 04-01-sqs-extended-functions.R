@@ -102,28 +102,51 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
 }
 
 ks_test <- function(df_cvs_samp, df_cvs_all, sample_type = "Calibrator") {
-  # Expect df_cvs_samp to have PlateId and any of `10%`,`50%`,`90%`.
-  q_cols <- base::intersect(base::c("10%", "50%", "90%"), base::colnames(df_cvs_samp))
-  if (length(q_cols) == 0L) stop("df_cvs_samp must contain one or more of `10%`, `50%`, `90%`.")
+  df_cvs_per_plate <- df_cvs_samp
   
-  # Build reference vector: same quantiles, exclude sample plates by PlateId
-  ref_vec <- df_cvs_all |>
-    dplyr::filter(.data$SampleType == sample_type) |>
-    dplyr::anti_join(df_cvs_samp |>
-                       dplyr::select(.data$PlateId),
-                     by = "PlateId") |>
-    dplyr::select(dplyr::all_of(q_cols)) |>
-    tidyr::pivot_longer(dplyr::everything(), values_to = "val") |>
-    dplyr::pull(.data$val) |>
-    base::as.numeric()
+  # <- adat_tbl %>% dplyr::filter(SampleType == sample_type) %>%
+  #   dplyr::select(PlateId, starts_with("seq.")) %>%
+  #   dplyr::group_by(PlateId) %>%
+  #   dplyr::summarise_if(is.numeric, function(x) sd(x)/mean(x)) %>%
+  #   ungroup() %>%
+  #   tidyr::gather(key = "SeqId", value = "CV", -PlateId) %>%
+  #   group_by(PlateId) %>%
+  #   summarise("10%" = round(quantile(CV, 0.1) * 100, 3),
+  #             "50%" = round(median(CV) * 100, 3),
+  #             "90%" = round(quantile(CV, 0.9) * 100, 3)) %>%
+  #   ungroup()
   
-  if (length(ref_vec) < 2 || !base::any(is.finite(ref_vec))) {
-    return(tibble::tibble(
-      PlateId = df_cvs_samp$PlateId,
-      Statistics = NA_real_,
-      `P-value` = NA_real_
-    ))
+  ref_pop_ks <- df_cvs_all %>%
+    dplyr::filter(SampleType == sample_type) %>%
+    dplyr::filter(!PlateId %in% df_cvs_per_plate$`Cal Precision(%)`) %>%
+    dplyr::select(`10%`, `50%`, `90%`) %>%
+    as.vector() %>%
+    unlist()
+  
+  df_ks_out <- tibble::tibble()
+  for(i in 1:nrow(df_cvs_per_plate)){
+    samp_ks <- df_cvs_per_plate[i,] %>% dplyr::select(-`Cal Precision(%)`) %>%
+      as.vector() %>%
+      unlist()
+    
+    plate_id <- df_cvs_per_plate[[i,1]]
+    
+    ks_res <- ks.test(samp_ks, ref_pop_ks) %>%
+      broom::tidy()
+    
+    df_ks_out <- dplyr::bind_rows(df_ks_out, tibble::tibble("PlateId" = plate_id,
+                                                            ks_res))
   }
+  
+  df_ks_out <- df_ks_out %>%
+    dplyr::rename("Statistics" = statistic) %>%
+    dplyr::rename("P-value" = p.value) %>%
+    dplyr::select(PlateId, Statistics, `P-value`)
+  
+  return(df_ks_out)
+}
+
+
   
   purrr::map_dfr(seq_len(base::nrow(df_cvs_samp)), function(i) {
     samp_vec <- df_cvs_samp[i, , drop = FALSE] |>
