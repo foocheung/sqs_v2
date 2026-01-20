@@ -148,23 +148,3 @@ ks_test <- function(df_cvs_samp, df_cvs_all, sample_type = "Calibrator") {
 
 
   
-  purrr::map_dfr(seq_len(base::nrow(df_cvs_samp)), function(i) {
-    samp_vec <- df_cvs_samp[i, , drop = FALSE] |>
-      dplyr::select(dplyr::all_of(q_cols)) |>
-      tidyr::pivot_longer(dplyr::everything(), values_to = "val") |>
-      dplyr::pull(.data$val) |>
-      base::as.numeric()
-    
-    if (base::sum(is.finite(samp_vec)) < 2) {
-      return(tibble::tibble(PlateId = df_cvs_samp$PlateId[i],
-                            Statistics = NA_real_, `P-value` = NA_real_))
-    }
-    
-    stats::ks.test(samp_vec, ref_vec) |>
-      broom::tidy() |>
-      dplyr::transmute(PlateId = df_cvs_samp$PlateId[i],
-                       Statistics = .data$statistic,
-                       `P-value` = .data$p.value)
-  })
-}
-
