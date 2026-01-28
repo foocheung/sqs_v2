@@ -44,14 +44,14 @@ safe_cv <- function(x) {
     "<strong>File size:</strong> ", size_str, "\n",
     "</div>\n"
   )
-  
+
   txt <- tryCatch(readLines(html_path, warn = FALSE, encoding = "UTF-8"),
                   error = function(e) NULL)
   if (is.null(txt)) {
     cat(footer, file = html_path, append = TRUE)
     return(invisible(TRUE))
   }
-  
+
   body_idx <- tail(grep("</body>", txt, ignore.case = TRUE), 1)
   if (length(body_idx) == 1L && is.finite(body_idx)) {
     txt <- append(txt, values = footer, after = body_idx - 1)
@@ -63,98 +63,9 @@ safe_cv <- function(x) {
 }
 
 # Namespaced, robust Levey–Jennings plot (median-centered by default)
-plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
-                       sample_type = "QC",
-                       sd_levels = c(1, 2),
-                       center = c("median", "mean"),
-                       y_lab = "Per-plate median CV (%)") {
-  center <- base::match.arg(center)
-  
-  df_cvs_per_plate <- adat_tbl |>
-    dplyr::filter(.data$SampleType == sample_type) |>
-    dplyr::select(.data$PlateId, tidyselect::starts_with("seq.")) |>
-    dplyr::group_by(.data$PlateId) |>
-    dplyr::summarise(dplyr::across(where(is.numeric), safe_cv), .groups = "drop")
-  
-  df_cvs_per_plate_quant <- df_cvs_per_plate |>
-    tidyr::pivot_longer(-.data$PlateId, names_to = "SeqId", values_to = "CV") |>
-    dplyr::group_by(.data$PlateId) |>
-    dplyr::summarise(
-      `10%` = round(stats::quantile(CV, 0.10, na.rm = TRUE) * 100, 1),
-      `50%` = round(stats::median(CV, na.rm = TRUE) * 100, 1),
-      `90%` = round(stats::quantile(CV, 0.90, na.rm = TRUE) * 100, 1),
-      .groups = "drop"
-    )
-  
-  exp_date <- as.character(adat_header$Header.Meta$HEADER$ExpDate)
-  
-  ref_plot_dat <- df_cvs_all |>
-    dplyr::filter(.data$SampleType == sample_type) |>
-    dplyr::anti_join(df_cvs_per_plate_quant |> dplyr::select(.data$PlateId), by = "PlateId") |>
-    dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
-    dplyr::mutate(PlateKey = paste0(.data$ExpDate, "-", .data$PlateId), Data = "Reference")
-  
-  if (nrow(ref_plot_dat) == 0) {
-    ref_plot_dat <- df_cvs_all |>
-      dplyr::filter(.data$SampleType == sample_type) |>
-      dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
-      dplyr::mutate(PlateKey = paste0(.data$ExpDate, "-", .data$PlateId), Data = "Reference")
-    warning("No historical plates left after exclusion; using all as reference.")
-  }
-  
-  ref_center <- if (center == "median") {
-    stats::median(ref_plot_dat$`50%`, na.rm = TRUE)
-  } else {
-    base::mean(ref_plot_dat$`50%`, na.rm = TRUE)
-  }
-  ref_sd <- stats::sd(ref_plot_dat$`50%`, na.rm = TRUE)
-  
-  samp_plot_dat <- df_cvs_per_plate_quant |>
-    dplyr::mutate(ExpDate = exp_date) |>
-    dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
-    dplyr::mutate(PlateKey = paste0(.data$ExpDate, "-", .data$PlateId), Data = "Sample")
-  
-  plot_dat <- dplyr::bind_rows(ref_plot_dat, samp_plot_dat) |>
-    dplyr::arrange(.data$ExpDate, .data$PlateId) |>
-    dplyr::mutate(
-      Data = factor(.data$Data, levels = c("Reference", "Sample")),
-      PlateKey = as.character(.data$PlateKey),
-      PlateKeyShort = dplyr::if_else(
-        nchar(.data$PlateKey) > 80,
-        paste0(substr(.data$PlateKey, 1, 40), "...", substr(.data$PlateKey, nchar(.data$PlateKey) - 39, nchar(.data$PlateKey))),
-        .data$PlateKey
-      ),
-      PlateKeyShort = forcats::fct_inorder(PlateKeyShort)
-    )
-  
-  p <- ggplot2::ggplot(plot_dat,
-                       ggplot2::aes(x = .data$PlateKeyShort,
-                                    y = `50%`,
-                                    group = 1,
-                                    color = .data$Data,
-                                    text = .data$PlateKey)) +
-    ggplot2::geom_hline(yintercept = ref_center, linewidth = 0.5)
-  
-  for (k in sd_levels) {
-    p <- p +
-      ggplot2::geom_hline(yintercept = ref_center + k * ref_sd,
-                          linetype = "dashed", linewidth = 0.3) +
-      ggplot2::geom_hline(yintercept = ref_center - k * ref_sd,
-                          linetype = "dashed", linewidth = 0.3)
-  }
-  
-  p +
-    ggplot2::geom_point() +
-    ggplot2::geom_line() +
-    ggplot2::scale_color_manual(breaks = c("Reference", "Sample"),
-                                values = c("#56B4E9", "#E69F00")) +
-    ggplot2::labs(y = y_lab, x = "Date - Plate ID") +
-    ggplot2::theme_minimal(base_size = 11) +
-    ggplot2::theme(
-      axis.text.x = ggplot2::element_text(angle = 90, vjust = 0.5, hjust = 1),
-      panel.grid.minor = ggplot2::element_blank()
-    )
-}
+
+# Note: plot_levey function now sourced from global.R
+
 
 # ============================================================================
 # MAIN SERVER FUNCTION
@@ -163,24 +74,24 @@ plot_levey <- function(adat_tbl, adat_header, df_cvs_all,
 app_server <- function(input, output, session) {
   # Set upload size limit once at app start
   options(shiny.maxRequestSize = 500 * 1024^2)
-  
+
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
   callModule(mod_table_server, "table_ui_1", metafile)
-  
+
   # ---- Reactive values to store generated HTML ----
   html_report <- reactiveVal(NULL)
   report_error <- reactiveVal(NULL)
-  
+
   # ---- GENERATE REPORT BUTTON ----
   observeEvent(input$generateReport, {
     req(metafile$df(), metafile$df2())
-    
+
     report_error(NULL)
-    
+
     tryCatch({
       shiny::withProgress(message = "Generating HTML report...", value = 0, {
-        
+
         # Workspace setup
         shiny::incProgress(0.1, detail = "Setting up workspace...")
         timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
@@ -188,27 +99,27 @@ app_server <- function(input, output, session) {
         dir.create(temp_dir, showWarnings = FALSE, recursive = TRUE)
         plot_dir <- file.path(temp_dir, "plots")
         dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
-        
+
         # Validate inputs
         shiny::incProgress(0.15, detail = "Validating input...")
         if (is.null(metafile$df()) || is.null(metafile$df2())) {
           stop("Input data is missing. Please ensure data is loaded correctly.")
         }
-        
+
         # Generate plots
         shiny::incProgress(0.35, detail = "Generating plots...")
         plot_files <- generate_plots(metafile, plot_dir)
-        
+
         # Generate R Markdown content
         shiny::incProgress(0.6, detail = "Preparing R Markdown...")
         rmd_content <- generate_rmd_report_html(metafile, plot_files, temp_dir)
         rmd_file <- file.path(temp_dir, "report.Rmd")
         writeLines(rmd_content, rmd_file)
-        
+
         # Render to self-contained HTML (no subprocess)
         shiny::incProgress(0.85, detail = "Rendering HTML...")
         output_file <- file.path(temp_dir, "report.html")
-        
+
         rmarkdown::render(
           input = rmd_file,
           output_file = output_file,
@@ -223,26 +134,26 @@ app_server <- function(input, output, session) {
           quiet = TRUE,
           envir = new.env(parent = globalenv())
         )
-        
+
         # Add metadata footer
         run_stamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")
         dur <- "~"
         size <- if (file.exists(output_file)) pretty_bytes(file.info(output_file)$size) else "0 B"
-        
+
         try(.inject_report_footer(output_file, run_stamp, dur, size), silent = TRUE)
-        
+
         # Read HTML and store in reactive
         html_content <- readLines(output_file, warn = FALSE, encoding = "UTF-8")
         html_content <- paste(html_content, collapse = "\n")
         html_report(html_content)
-        
+
         # Store file path and timestamp for download/save
         session$userData$report_file <- output_file
         session$userData$report_timestamp <- timestamp
-        
+
         shiny::incProgress(1, message = paste("Done!", size))
       })
-      
+
     }, error = function(e) {
       report_error(paste("Error generating report:", conditionMessage(e)))
       shiny::showNotification(
@@ -252,7 +163,7 @@ app_server <- function(input, output, session) {
       )
     })
   })
-  
+
   # ---- Display Report Status ----
   output$reportStatus <- renderUI({
     if (!is.null(report_error())) {
@@ -271,18 +182,18 @@ app_server <- function(input, output, session) {
     }
     return(NULL)
   })
-  
+
   # ---- Display HTML Report in Tab ----
   output$htmlReportPreview <- renderUI({
     req(html_report())
-    
+
     tags$iframe(
       srcdoc = html_report(),
       style = "width: 100%; height: 900px; border: none;",
       title = "SomaScan QC Report"
     )
   })
-  
+
   # ---- DOWNLOAD BUTTON ----
   output$downloadReport <- downloadHandler(
     filename = function() {
@@ -290,7 +201,7 @@ app_server <- function(input, output, session) {
     },
     content = function(file) {
       req(html_report())
-      
+
       if (is.null(session$userData$report_file)) {
         showNotification(
           "Please generate report first using 'Generate HTML Report' button",
@@ -299,7 +210,7 @@ app_server <- function(input, output, session) {
         )
         return(NULL)
       }
-      
+
       file.copy(
         session$userData$report_file,
         file,
@@ -307,14 +218,14 @@ app_server <- function(input, output, session) {
       )
     }
   )
-  
+
   # ============================================================================
   # ---- SAVE TO FOLDER BUTTON - OPTION 1: Modal Dialog ----
   # ============================================================================
-  
+
   observeEvent(input$saveReportLocal, {
     req(html_report())
-    
+
     if (is.null(session$userData$report_file)) {
       showNotification(
         "Please generate report first using 'Generate HTML Report' button",
@@ -323,19 +234,19 @@ app_server <- function(input, output, session) {
       )
       return(NULL)
     }
-    
+
     # Determine default directory based on OS
     if (.Platform$OS.type == "windows") {
       default_path <- file.path(Sys.getenv("USERPROFILE"), "Documents", "SQS_Reports")
     } else {
       default_path <- path.expand("~/SQS_Reports")
     }
-    
+
     # Show modal dialog for user to choose save location
     showModal(modalDialog(
       title = "Save Report - Choose Location",
       size = "m",
-      
+
       # File path input
       textInput(
         inputId = "savePath",
@@ -344,7 +255,7 @@ app_server <- function(input, output, session) {
         width = "100%",
         placeholder = "Enter directory path"
       ),
-      
+
       # Info text with examples
       div(
         style = "margin-top: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 5px;",
@@ -362,18 +273,18 @@ app_server <- function(input, output, session) {
           style = "font-size: 0.9em; color: #333; margin: 0;"
         )
       ),
-      
+
       # Tip text
       p(
         em("💡 Tip: Use '~' to represent your home directory"),
         style = "font-size: 0.85em; color: #666; margin-top: 10px; margin-bottom: 0;"
       ),
-      
+
       # Footer buttons
       footer = tagList(
         # Cancel button
         modalButton("Cancel"),
-        
+
         # Save button
         actionButton(
           "confirmSaveReport",
@@ -384,16 +295,16 @@ app_server <- function(input, output, session) {
       )
     ))
   })
-  
+
   # ---- Handle Save Confirmation ----
   observeEvent(input$confirmSaveReport, {
     req(input$savePath)
     req(html_report())
-    
+
     tryCatch({
       # Get user-provided path and expand ~ for home directory
       save_dir <- path.expand(input$savePath)
-      
+
       # Validate directory path
       if (save_dir == "" || is.na(save_dir)) {
         showNotification(
@@ -403,32 +314,32 @@ app_server <- function(input, output, session) {
         )
         return(NULL)
       }
-      
+
       # Create directory if it doesn't exist
       if (!dir.exists(save_dir)) {
         dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
       }
-      
+
       # Generate filename with timestamp
       timestamp <- if (!is.null(session$userData$report_timestamp)) {
         session$userData$report_timestamp
       } else {
         format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
       }
-      
+
       filename <- paste0("SomaScan_QC_Report_", timestamp, ".html")
       save_path <- file.path(save_dir, filename)
-      
+
       # Copy report file to chosen location
       file.copy(
         session$userData$report_file,
         save_path,
         overwrite = TRUE
       )
-      
+
       # Remove modal dialog
       removeModal()
-      
+
       # Show success notification with file details
       showNotification(
         HTML(paste(
@@ -441,7 +352,7 @@ app_server <- function(input, output, session) {
         type = "message",
         duration = 10
       )
-      
+
     }, error = function(e) {
       showNotification(
         paste("Error saving report:", conditionMessage(e)),
@@ -450,11 +361,11 @@ app_server <- function(input, output, session) {
       )
     })
   })
-  
+
   # ============================================================================
   # PLOT GENERATION FUNCTION
   # ============================================================================
-  
+
   generate_plots <- function(metafile, plot_dir) {
     # PCA: Sample Type
     pca_dat <- metafile$df() %>% dplyr::select(starts_with("seq."))
@@ -476,7 +387,7 @@ app_server <- function(input, output, session) {
       ggplot2::theme_minimal()
     pca_sample_type_file <- file.path(plot_dir, "pca_sample_type.png")
     ggplot2::ggsave(pca_sample_type_file, plot_pca, width = 8, height = 6, dpi = 300)
-    
+
     # PCA: RowCheck
     avoid_SOMAmers <- foodata::load_data2()
     avoid_prot <- avoid_SOMAmers %>%
@@ -503,18 +414,18 @@ app_server <- function(input, output, session) {
       ggplot2::theme_minimal()
     pca_rowcheck_file <- file.path(plot_dir, "pca_sample_rowcheck.png")
     ggplot2::ggsave(pca_rowcheck_file, plot_samp_pca_flag, width = 8, height = 6, dpi = 300)
-    
+
     # Levey–Jennings plots
     df_cvs_all <- foodata::load_data4()
     adat_header <- metafile$df2()
     levey_cal <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
     levey_calibrator_file <- file.path(plot_dir, "levey_calibrator.png")
     ggplot2::ggsave(levey_calibrator_file, levey_cal, width = 8, height = 6, dpi = 300)
-    
+
     levey_qc <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "QC")
     levey_somalogic_qc_file <- file.path(plot_dir, "levey_somalogic_qc.png")
     ggplot2::ggsave(levey_somalogic_qc_file, levey_qc, width = 8, height = 6, dpi = 300)
-    
+
     list(
       pca_sample_type     = pca_sample_type_file,
       pca_sample_rowcheck = pca_rowcheck_file,
@@ -522,33 +433,33 @@ app_server <- function(input, output, session) {
       levey_somalogic_qc  = levey_somalogic_qc_file
     )
   }
-  
+
   # ============================================================================
   # R MARKDOWN REPORT GENERATION
   # ============================================================================
-  
+
   generate_rmd_report_html <- function(metafile, plot_files, temp_dir) {
-    
+
     # ---- Helper: Safe CV ----
     safe_cv <- function(x) {
       m <- mean(x, na.rm = TRUE)
       if (!is.finite(m) || m == 0) return(NA_real_)
       sd(x, na.rm = TRUE) / m
     }
-    
+
     # Sample summary
     samp_summary <- as.data.frame.matrix(table(metafile$df()$PlateId, metafile$df()$SampleType)) %>%
       tibble::rownames_to_column("PlateId")
-    
+
     # Flags
     flagged_samples <- metafile$df() %>%
       dplyr::filter(RowCheck == "FLAG") %>%
       dplyr::select(PlateId, SampleId, SampleType)
-    
+
     rowcheck_dat <- metafile$df() %>%
       dplyr::select(PlateId, SampleType, RowCheck)
     pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
-    
+
     # Median norm
     df_norm_scale <- metafile$df() %>%
       dplyr::select(PlateId, SampleId, SampleType, NormScale_0_005, NormScale_0_5, NormScale_20) %>%
@@ -565,7 +476,7 @@ app_server <- function(input, output, session) {
         Flag  = sum(pass_flag$Sample) - Pass,
         Total = sum(pass_flag$Sample)
       )
-    
+
     # ANML fraction
     df_anml_fraction <- metafile$df() %>%
       dplyr::select(PlateId, SampleId, SampleType, ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
@@ -582,26 +493,26 @@ app_server <- function(input, output, session) {
         Flag  = sum(pass_flag$Sample) - Pass,
         Total = sum(pass_flag$Sample)
       )
-    
+
     # Header/meta
     adat_header <- metafile$df2()
     keys <- names(adat_header$Header.Meta$HEADER)
-    
+
     # Plate scale
     df_plate_scale <- {
       keys_scalar <- grep("^PlateScale_Scalar", keys, value = TRUE)
       keys_pass   <- grep("^PlateScale_PassFlag", keys, value = TRUE)
-      
+
       pass <- data.frame(`Plate Check` = unlist(adat_header$Header.Meta$HEADER[keys_pass]),
                          check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^PlateScale_PassFlag_", "", Plate))
-      
+
       scalar <- data.frame(Value = unlist(adat_header$Header.Meta$HEADER[keys_scalar]),
                            check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^PlateScale_Scalar_", "", Plate))
-      
+
       dplyr::inner_join(pass, scalar, by = "Plate") %>%
         dplyr::transmute(
           Plate,
@@ -610,22 +521,22 @@ app_server <- function(input, output, session) {
           Value = round(as.numeric(.data[["Value"]]), 2)
         )
     }
-    
+
     # Calibrator percent in tails
     df_cal_perc_tails <- {
       keys_pct <- grep("^CalPlateTailPercent", keys, value = TRUE)
       keys_tst <- grep("^CalPlateTailTest",    keys, value = TRUE)
-      
+
       test <- data.frame(`Plate Check` = unlist(adat_header$Header.Meta$HEADER[keys_tst]),
                          check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
-      
+
       pct <- data.frame(Value = unlist(adat_header$Header.Meta$HEADER[keys_pct]),
                         check.names = FALSE) %>%
         tibble::rownames_to_column(var = "Plate") %>%
         dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
-      
+
       dplyr::inner_join(test, pct, by = "Plate") %>%
         dplyr::transmute(
           Plate,
@@ -634,7 +545,7 @@ app_server <- function(input, output, session) {
           Value = round(as.numeric(.data[["Value"]]), 2)
         )
     }
-    
+
     # SOMAmers in tails
     df_SOMAmers_tails <- data.frame(
       "SeqId"            = adat_header$Col.Meta$SeqId,
@@ -653,7 +564,7 @@ app_server <- function(input, output, session) {
       `PASS` = n_pass,
       `Total` = n_total
     )
-    
+
     # Calibrator CVs (per plate)
     df_cvs <- metafile$df() %>%
       dplyr::filter(SampleType == "Calibrator") %>%
@@ -670,7 +581,7 @@ app_server <- function(input, output, session) {
         `90%` = if (dplyr::n() == 0) NA_real_ else round(quantile(CV, 0.9, na.rm = TRUE) * 100, 1),
         .groups = "drop"
       )
-    
+
     # QC CVs (overall)
     df_cvs_qc <- metafile$df() %>%
       dplyr::filter(SampleType == "QC") %>%
@@ -684,7 +595,7 @@ app_server <- function(input, output, session) {
         `50%` = if (dplyr::n() == 0) NA_real_ else round(median(CV, na.rm = TRUE) * 100, 1),
         `90%` = if (dplyr::n() == 0) NA_real_ else round(quantile(CV, 0.9, na.rm = TRUE) * 100, 1)
       )
-    
+
     qc_cv_summary <- metafile$df() %>%
       dplyr::filter(SampleType == "QC") %>%
       dplyr::select(Barcode) %>%
@@ -692,7 +603,7 @@ app_server <- function(input, output, session) {
       unique() %>%
       dplyr::bind_cols(., df_cvs_qc) %>%
       dplyr::rename(`QC Lot` = Barcode)
-    
+
     # Save for Rmd
     saveRDS(samp_summary,      file.path(temp_dir, "samp_summary.rds"))
     saveRDS(flagged_samples,   file.path(temp_dir, "flagged_samples.rds"))
@@ -703,7 +614,7 @@ app_server <- function(input, output, session) {
     saveRDS(somamers_summary,  file.path(temp_dir, "somamers_summary.rds"))
     saveRDS(df_cvs,            file.path(temp_dir, "df_cvs.rds"))
     saveRDS(qc_cv_summary,     file.path(temp_dir, "qc_cv_summary.rds"))
-    
+
     # R Markdown body
     c(
       '---',
