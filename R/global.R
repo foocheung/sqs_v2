@@ -9,7 +9,7 @@
 suppressPackageStartupMessages({
   library(shiny)
   library(shinythemes)
-  library(shinycssloaders)
+ ## library(shinycssloaders)
   library(tictoc)
   library(tidyverse)
   library(SomaDataIO)
