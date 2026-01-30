@@ -24,6 +24,7 @@ Imports:
     tibble,
     dplyr,
     bslib,
+    shinycssloaders,
     tinytex
 Remotes:
     github::foocheung/foodata2
