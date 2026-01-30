@@ -1,6 +1,6 @@
 #' table UI Function
 #'
-#' @description A shiny Module.
+#' @description A shiny Module for quality control data visualization and analysis.
 #'
 #' @param id,input,output,session Internal parameters for {shiny}.
 #'
@@ -14,232 +14,457 @@ addResourcePath("d", "extdata/")
 
 mod_table_ui <- function(id, name){
   ns <- NS(id)
-##tbl_flag_pass_samples
 
-tabsetPanel(
-  tabPanel("Introduction",
-         h4(strong("Introduction")),
-         HTML('<iframe width="560" height="315" src="https://github.com/foocheung/sqs/assets/25374694/7196212d-0d18-4624-ba92-1c37319969b0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'),
+  tabsetPanel(
+    tabPanel("Introduction",
+             h4(strong("Quality Control Analysis Overview")),
+             HTML('<iframe width="560" height="315" src="https://github.com/foocheung/sqs/assets/25374694/7196212d-0d18-4624-ba92-1c37319969b0" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'),
 
- HTML(" <h1>SomaLogic Data QC Analysis</h1> <h2>User Interface Function:</h2>
+             HTML("<h2>Plasma Proteomics Assay Quality Control</h2>
+  <p>This application implements standardized quality control procedures for
+  plasma proteomics assay data. The analysis encompasses multiple dimensions of
+  data quality, from sample composition through calibration stability.</p>
+
+  <h3>Assessment Components</h3>
   <ul>
-    <li><strong>Tabbed Interface:</strong> Defines a Shiny module for creating a tabbed interface.</li>
-    <li><strong>Tab Content:</strong>
-      <ul>
-        <li><strong>Introduction:</strong> Provides introductory information about the purpose of the web tool developed by CHI bioinformatics and Proteomics.</li>
-        <li><strong>Experimental Design:</strong> Displays a summary table of the assayed samples, including study samples, buffers, SomaLogic's QC, and CHI control samples.</li>
-        <li><strong>Sample Type PCA Plots:</strong> Presents PCA plots contrasting between groups of interest, showing separation between different sample types.</li>
-        <li><strong>Standardization:</strong> Provides information about the standardization process for SomaScan assay data, including normalization and calibration procedures.</li>
-        <li><strong>Sample Normalization:</strong> Includes various sub-tabs for analyzing sample normalization, such as samples passed or flagged, PCA plots based on quality criteria, flagged samples per plate, median normalization scale factors, and ANML fraction used.</li>
-        <li><strong>Calibration:</strong> Covers calibration-related analyses, including plate scale, calibrator percent in tails, SOMAmers in tails, QC percent in tails, calibrator CVs, and SomaLogic's QC sample CVs.</li>
-      </ul>
-    </li>
+    <li><strong>Sample Composition:</strong> Summary table of study samples,
+    quality control replicates, calibration references, and other sample types
+    included in the assay run.</li>
+
+    <li><strong>Sample Type Separation:</strong> Principal component analysis to
+    visualize sample clustering by type and assess separation between groups.
+    Useful for identifying potential technical artifacts or batch effects.</li>
+
+    <li><strong>Data Standardization:</strong> Overview of normalization and
+    calibration procedures, including internal control correction, reference
+    material normalization, and plate-level scaling factors.</li>
+
+    <li><strong>Sample-Level Quality Metrics:</strong> Per-sample assessment
+    including normalization scale factors, fraction of protein targets used in
+    normalization calculations, and sample quality flags based on acceptance
+    criteria.</li>
+
+    <li><strong>Reproducibility Analysis:</strong> Coefficient of variation
+    (CV) analysis for reference materials and quality control samples,
+    including plate-level trends and comparison to historical distributions.</li>
+
+    <li><strong>Calibration Assessment:</strong> Plate-scale factors, reference
+    material performance metrics, and protein target-specific accuracy assessment
+    relative to expected values.</li>
   </ul>
 
-  <h2>Server Function:</h2>
-  <ul>
-    <li><strong>Server-Side Logic:</strong> Manages server-side logic for the Shiny module.</li>
-    <li><strong>Output Functions (output$...):</strong>
-      <ul>
-        <li>Generates various visualizations and tables based on the SomaLogic data and user input.</li>
-        <li>Conducts QC analyses and data manipulations.</li>
-        <li>Handles file processing, data summarization, and visualization rendering.</li>
-      </ul>
-    </li>
-    <li><strong>Specific Functionality:</strong>
-      <ul>
-        <li><strong>PCA Plots:</strong> Generates PCA plots to visualize sample clustering based on sample types.</li>
-        <li><strong>Normalization and Standardization:</strong> Performs normalization and standardization procedures on the SomaScan assay data to mitigate technical variations.</li>
-        <li><strong>QC Analysis:</strong> Analyzes flagged samples, calculates various QC metrics, and generates data tables summarizing QC results.</li>
-        <li><strong>Data Processing:</strong> Processes SomaLogic data files, conducts calculations, and manipulates data for visualization and analysis purposes.</li>
-      </ul>
-    </li>
-    <li><strong>Progress Indicator (withProgress):</strong> Displays a progress indicator while generating visualizations or processing data to provide feedback to the user about the ongoing operations.</li>
-              </ul>")
-  ),
-tabPanel("Experimental Design", DT::dataTableOutput(ns("tbl_sample_summary")),
-  HTML("<H1>Experimental Design</H1>
-  <p>This summary encompasses various types of assayed samples, including:</p>
+  <p><strong>Interpretation:</strong> Results from these quality control analyses
+  inform downstream data processing decisions, including sample retention/exclusion,
+  applicability of specific normalization methods, and confidence in protein
+  abundance estimates.</p>"
+             )),
+
+    tabPanel("Experimental Design", DT::dataTableOutput(ns("tbl_sample_summary")),
+             HTML("<h2>Experimental Design Summary</h2>
+  <p>This table summarizes the sample composition across all assay runs, including:</p>
 
   <ul>
-    <li><strong>Study Samples:</strong> Samples collected and analyzed as part of the study.</li>
-    <li><strong>Buffers:</strong> Solutions used to maintain pH and osmolarity, typically without any proteins.</li>
-    <li><strong>SomaLogic's QC Samples:</strong> Samples provided by SomaLogic to ensure assay quality and consistency.</li>
-    <li><strong>CHI Control Samples:</strong> Samples used as controls to monitor assay performance and validate results.</li>
+    <li><strong>Study Samples:</strong> Primary samples from the research cohort
+    or intervention group.</li>
+
+    <li><strong>Quality Control Samples:</strong> Replicate samples used to assess
+    assay reproducibility and technical performance.</li>
+
+    <li><strong>Calibration References:</strong> Standard reference materials used
+    to normalize protein abundance estimates across assay runs.</li>
+
+    <li><strong>Negative Controls:</strong> Buffer-only or sham samples with no
+    expected protein signal, used to assess background signal levels.</li>
+
+    <li><strong>Positive Controls:</strong> Samples with known protein content,
+    used to validate correct analyte detection and quantification.</li>
   </ul>
 
-  <p>This summary provides an overview of the different types of samples analyzed in the study, offering insights into the composition and scope of the assay.</p>
-</body>
-")),
- tabPanel("Sample Type PCA Plots",  selectInput(inputId=ns("pca_color"), label="Color", c("SampleType","PlateId","AssayNotes","SampleNotes", "TimePoint", "SampleGroup"), "SampleType"),
-          plotly::plotlyOutput(ns("pca_sample_type")),
-HTML("<h1>Sample Type PCA Plots</h1>
+  <p>The frequency of each sample type per plate reflects the assay design and
+  quality control strategy employed.</p>"
+             )),
 
-  <p>These PCA plots display the results of Principal Component Analysis conducted on a filtered set of SOMAmers (7,289) recommended by SomaLogic for analysis. The plots contrast between different groups of interest and exclusively focus on the study samples, excluding all non-study samples.</p>
-  <p><strong>What to look for:</strong> The samples should form clusters based on their type. Typically, PC1 illustrates the separation between buffers without any protein and other sample types containing proteins.</p>
+    tabPanel("Sample Type Separation",
+             selectInput(inputId=ns("pca_color"),
+                         label="Color by:",
+                         c("SampleType","PlateId","AssayNotes","SampleNotes",
+                           "TimePoint", "SampleGroup"),
+                         "SampleType"),
+             plotly::plotlyOutput(ns("pca_sample_type")),
+             HTML("<h2>Principal Component Analysis of Sample Separation</h2>
+
+  <p>Principal component analysis (PCA) was performed on the complete set of
+  protein targets to visualize sample relationships and assess clustering patterns.
+  Each point represents one sample, colored by the selected grouping variable.</p>
+
+  <p><strong>Interpretation:</strong> Samples should cluster based on biological
+  or technical similarity. Distinct sample type groupings suggest adequate separation.
+  Outlier samples falling far from their expected cluster may warrant further
+  investigation.</p>
 
   <hr>
 
-  <p>Principal Component Analysis (PCA) serves as an effective method for preliminary Quality Control (QC) of SomaScan data. PCAs can reveal technical artifacts, such as defects in specific plates or sample types, as well as biological anomalies, such as outliers.</p>
-  <p>The scatter plots shown in @fig-pca-sample-type and @fig-pca-plate-id represent the first two principal components (PC1 and PC2), with each dot representing a different sample type, including buffers, calibrators, SomaLogic Quality Control (QC) samples, CHI controls, and study samples. The samples are colored based on their sample type and plate ID. These PCA plots encompass all 7,596 SOMAmer® molecules detected in the assay.</p>"
-     )),
- tabPanel("Standardization","",
-          HTML("<h1>SomaScan Assay Data Normalization</h1>
+  <h3>PCA for Quality Control</h3>
+  <p>Principal component analysis is a widely-used exploratory technique for
+  quality assessment in high-dimensional assay data. Benefits include:</p>
 
-  <p>SomaScan assay data undergoes several normalization steps to mitigate variation within the run and between runs:</p>
+  <ul>
+    <li>Detection of technical artifacts (e.g., plate effects, batch drift)</li>
+    <li>Identification of biological outliers or unexpected samples</li>
+    <li>Visual assessment of sample homogeneity within groups</li>
+    <li>Validation of assay reproducibility across runs</li>
+  </ul>
 
+  <p>PC1 and PC2 are displayed, representing the first two sources of variance
+  in the data. The percentage of total variance explained by each component is
+  shown on the axes.</p>"
+             )),
+
+    tabPanel("Data Standardization","",
+             HTML("<h2>Data Standardization Procedures</h2>
+
+  <p>Plasma proteomics assay data undergo sequential standardization to mitigate
+  technical variation within and between assay runs. This section describes the
+  standardization pipeline applied to your data.</p>
+
+  <h3>Standardization Steps</h3>
   <ol>
-    <li><strong>Hybridization Control Normalization:</strong> Initial normalization using hybridization controls aims to reduce variation arising from steps like transfer to Agilent slides, hybridization, wash, and scan within the run.</li>
-    <li><strong>Median Signal Normalization:</strong> Median signal normalization across pooled calibrator replicates within the run mitigates technical variation in the calibrator signal before scaling calculations. This involves calculating the ratios of the calibrator reference value to the median of calibrator replicates for each SOMAmer reagent.</li>
-    <li><strong>Plate Scale and Calibration Scale:</strong> The ratios are decomposed into two terms: plate scale, adjusting for overall signal intensity differences between runs, and calibration scale, recalculating scale factors for each SOMAmer reagent to adjust for specific assay differences between runs.</li>
-    <li><strong>Normalization Methods:</strong> Median signal normalization can be performed using Adaptive Normalization by Maximum Likelihood (ANML) for consistent specimen types and studies or median normalization to a study-specific reference. Acceptance criteria for these methods are detailed below.</li>
+    <li><strong>Internal Control Normalization:</strong> Initial normalization
+    using internal spike-in controls or platform-specific internal controls to
+    reduce variation arising from technical steps including sample transfer,
+    incubation, wash, and detection.</li>
+
+    <li><strong>Reference Material Normalization:</strong> Normalization of each
+    protein target to the median signal of calibration reference materials within
+    the assay run. This step reduces technical drift in the reference material
+    signal before calculating scaling factors.</li>
+
+    <li><strong>Plate-Level and Per-Target Scaling:</strong> Decomposition of
+    normalization factors into two components:
+      <ul>
+        <li><strong>Plate Scale:</strong> Median scaling factor applied across
+        all protein targets on a plate, adjusting for overall signal intensity
+        differences between runs (e.g., scanner settings, reagent lot variation).</li>
+        <li><strong>Per-Target Calibration Scale:</strong> Target-specific scaling
+        factors that adjust for protein-specific technical differences between runs,
+        improving accuracy of abundance estimates.</li>
+      </ul>
+    </li>
+
+    <li><strong>Normalization Method Selection:</strong> Application of an
+    appropriate normalization approach based on data characteristics and
+    reference material availability.</li>
   </ol>
 
+  <h3>Normalization Approaches</h3>
   <table>
     <thead>
       <tr>
-        <th>Normalization Method</th>
-        <th>Criteria</th>
+        <th>Approach</th>
+        <th>Suitability Criteria</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>Adaptive Normalization by Maximum Likelihood (ANML)</td>
-        <td>Consistent with predefined population references</td>
+        <td>Population-Based Reference Normalization</td>
+        <td>Use when reference distribution data from the same platform, specimen
+        type, and assay variant are available and representative of your samples.</td>
       </tr>
       <tr>
-        <td>Median Normalization to Study-Specific Reference</td>
-        <td>Consistency with study-specific references</td>
+        <td>Study-Specific Normalization</td>
+        <td>Use when population reference data are unavailable, non-comparable,
+        or when assay conditions differ substantially from historical data.</td>
       </tr>
     </tbody>
   </table>
 
-  <p>Note: Non-Core Matrices may not undergo all data standardization procedures.</p>")
-          ),
- tabPanel("Sample Normalization",
-          tabsetPanel(
-            tabPanel("Samples Passed or Flagged", DT::dataTableOutput(ns("tbl_flag_pass_samples")),
-                     HTML("<h1>Summary of Sample Quality</h1>
+  <p><em>Note:</em> Different assay platforms and kit versions may employ different
+  standardization procedures. Consult your platform-specific documentation for
+  detailed methodology.</p>"
+             ),
+             h4("Assessment Metrics"),
+             p("The following sections provide detailed quality metrics for each
+             standardization step, including acceptance criteria and interpretation guidance.")
+    ),
 
-  <p>This summary provides an overview of sample quality assessment:</p>
+    tabPanel("Sample Quality",
+             tabsetPanel(
+               tabPanel("Pass/Fail Summary",
+                        DT::dataTableOutput(ns("tbl_flag_pass_samples")),
+                        HTML("<h2>Sample Quality Summary</h2>
+
+  <p>This table summarizes sample quality assessment results:</p>
 
   <ul>
-    <li><strong>Number of Samples:</strong> Indicates the total number of samples assessed.</li>
-    <li><strong>Pass/Fail Status:</strong> Shows the count of samples that passed quality criteria and those flagged for potential issues.</li>
-    <li><strong>Flagged Samples:</strong> Lists specific samples that were flagged based on quality criteria.</li>
+    <li><strong>Total Samples Analyzed:</strong> Number of samples processed through
+    the quality control pipeline.</li>
+
+    <li><strong>Pass/Fail Status:</strong> Count of samples meeting or failing quality
+    acceptance criteria based on standardization metrics.</li>
+
+    <li><strong>Sample Flags:</strong> Samples marked for further evaluation due to
+    out-of-range quality metrics may require exclusion from analysis or investigation
+    of technical causes.</li>
   </ul>
 
-  <p>Flagged samples typically undergo further evaluation to determine their suitability for analysis. This assessment includes verifying the effectiveness of normalization methods and references intended for the planned analysis.</p>
+  <p><strong>Next Steps:</strong> Flagged samples should be reviewed individually.
+  Determine whether quality issues are systematic (e.g., plate effect) or sample-specific,
+  and decide whether to retain or exclude samples from downstream analysis.</p>
 ")),
-            tabPanel("PCA Plot Based on Quality Criteria", plotly::plotlyOutput(ns("pca_sample_rowcheck")),
-                     HTML("<h1>PCA Plot Based on Quality Criteria</h1>
-                     <p>This PCA Plot provides insights into the flagged samples identified based on quality criteria. It visualizes the distribution of flagged samples within the principal component analysis (PCA) plot.</p>
-                              <p>Analysis of the PCA plot:</p>
-                              <ul>
-                              <li>The flagged samples are highlighted or labeled within the PCA plot, indicating their positions relative to other samples.</li>
-                              <li>This visualization helps in identifying clusters or patterns of flagged samples, which may indicate common characteristics or issues.</li>
-                              <li>By examining the distribution of flagged samples, researchers can gain insights into potential data quality issues or outliers.</li>
-                              </ul>")),
-            tabPanel("Flagged Samples per Plate", DT::DTOutput(ns("tbl_flagged_samples")),
-                    HTML("<h2>Flagged Samples per Plate</h2>
-                     <p>This table provides an overview of the number of samples flagged by the quality criteria per plate.</p>
-                      <p>This table allows for quick identification of plates with a higher number of flagged samples, which may indicate specific issues or anomalies in the data collection process.</p>
+
+               tabPanel("Sample Separation (PCA)",
+                        plotly::plotlyOutput(ns("pca_sample_rowcheck")),
+                        HTML("<h2>Sample Quality Assessment via PCA</h2>
+                     <p>Principal component analysis restricted to study samples,
+                     with points colored by quality flag status (PASS/FLAG). This
+                     visualization helps identify whether flagged samples form
+                     distinct clusters or are scattered throughout sample space.</p>
+
+                     <p><strong>Interpretation:</strong></p>
+                     <ul>
+                     <li>Flagged samples clustering together may indicate a
+                     systematic issue (e.g., plate batch effect).</li>
+
+                     <li>Flagged samples scattered among passing samples suggest
+                     sample-specific quality issues.</li>
+
+                     <li>Flagged samples at extremes of PC space may be legitimate
+                     biological outliers rather than technical failures.</li>
+                     </ul>")),
+
+               tabPanel("Flagged Samples per Plate",
+                        DT::DTOutput(ns("tbl_flagged_samples")),
+                        HTML("<h2>Quality Flags by Plate</h2>
+                     <p>This table lists samples that failed quality acceptance
+                     criteria, organized by assay plate and sample identifier.</p>
+
+                     <p>High numbers of flagged samples on a single plate may indicate
+                     a plate-specific technical issue (e.g., defective plate,
+                     scanner error, reagent problem) that should be investigated before
+                     including samples in downstream analysis.</p>
                        ")
-            ),
-            tabPanel("Median Normalization Scale Factors", DT::dataTableOutput(ns("tbl_med_norm")),
-                     HTML("<h2>Median Normalization Scale Factors</h2>
+               ),
 
-                       <p>This section provides information on the median normalization scale factors.</p>
+               tabPanel("Normalization Scale Factors",
+                        DT::dataTableOutput(ns("tbl_med_norm")),
+                        HTML("<h2>Normalization Scale Factors Summary</h2>
 
-                       <p>It includes:</p>
+                       <p>Normalization scale factors (NSF) represent the ratio of
+                       reference material value to median protein target signal within
+                       each dilution group. NSF values are calculated separately for
+                       each of three typical dilution levels (high, medium, low).</p>
+
+                       <p><strong>Quality Assessment:</strong> This table summarizes
+                       the number of samples with NSF values within the expected range
+                       (0.4 – 2.5) versus those flagged as out-of-range for each
+                       dilution group.</p>
+
+                       <p><strong>Interpretation:</strong></p>
                        <ul>
-                       <li>The number of samples passed or flagged in the median normalization scale factors criteria for the three dilutions.</li>
-                       <li>A list of flagged samples (if any) along with their scale factors.</li>
+                       <li>NSF values outside the expected range suggest inadequate
+                       normalization or unusual protein abundance patterns.</li>
+
+                       <li>Systematic deviation (e.g., all samples in one dilution
+                       too high) may indicate reference material instability or
+                       calibration drift.</li>
+
+                       <li>Out-of-range samples should be evaluated for technical
+                       problems or biological legitimacy before exclusion.</li>
                        </ul>
 
-                       <p>Median Normalization Scale Factors represent the median of the selected set of ratios for each sample of the SOMAmer reagent signal within the dilution group to the population reference.</p>
+                       <p><strong>Expected range:</strong> 0.4 – 2.5</p> ")
+               ),
 
-                       <p>The table below summarizes the number of samples passed or flagged in this category and lists the flagged samples along with their scale factors.</p>
+               tabPanel("ANML Fraction Used",
+                        DT::dataTableOutput(ns("tbl_anml_fraction")),
+                        HTML("<h2>Adaptive Normalization - Fraction Used</h2>
+                       <p>When using population-based reference normalization, the
+                       'ANML fraction used' represents the proportion of protein targets
+                       in each dilution group that were successfully used in the
+                       normalization calculation (i.e., fell within expected range of
+                       the population reference).</p>
 
-                       <p><strong>Expected range:</strong> 0.4 - 2.5</p> ")
-                     ),
-            tabPanel("ANML Fraction Used", DT::dataTableOutput(ns("tbl_anml_fraction")),
-                     HTML("<h2>ANML Fraction Used</h2>
-                       <p>This section provides information on the ANML fraction used.</p>
-                       <p>It includes:</p>
+                       <p><strong>Interpretation:</strong></p>
                        <ul>
-                       <li>The number of samples passed or flagged in the ANML fraction used criteria for the three dilutions.</li>
-                       <li>A list of flagged samples (if any) along with their scale factors.</li>
+                       <li><strong>High fraction (>0.7):</strong> Sample characteristics
+                       are consistent with reference population; normalization is
+                       reliable.</li>
+
+                       <li><strong>Low fraction (<0.3):</strong> Sample is unusual
+                       relative to reference population; may warrant investigation or
+                       use of alternative normalization method.</li>
+
+                       <li><strong>Dilution-Specific Patterns:</strong> Different
+                       fractions across dilutions suggest dilution-dependent sample
+                       characteristics or potential technical issues specific to one
+                       dilution level.</li>
                        </ul>
-                       <p>ANML (Adaptive Normalization by Maximum Likelihood) Fraction Used refers to the fraction of a dilution group for each sample that is between 2 population reference standard deviations of the normal population reference value.</p>
-                       <p>Values between 2 population reference standard deviations are used to calculate a 'NormScale Factor' for a dilution group.</p>")
 
-                     )
-          )
- ),
- tabPanel("Calibration",
-          tabsetPanel(
-            tabPanel("Plate Scale", DT::dataTableOutput(ns("tbl_plate_scale")),
-                    HTML("<h2>Plate Scale</h2>
-                       <p>Plate Scaling is determined by the median of the set of calibrator reference ratios per plate.</p>
-                       <p>This process results in a single scale factor applied across the plate.</p>
-                       <p>Plate Scaling is typically associated with differences in scanner intensity from plate to plate.</p>")
-                       ),
-            tabPanel("Calibrator Percent In Tails", DT::dataTableOutput(ns("tbl_cal_perc")),
-                     HTML("<h2>Calibrator Percent In Tails</h2>
-                                   <p>Calibrator Percent In Tails indicates the percentage of plate calibration scale factors that fall outside the expected range.</p>
-                                   <p>The expected range for this metric is between 0.6 and 1.4.</p>"
-                     )),
-            tabPanel("SOMAmers In Tails", DT::dataTableOutput(ns("tbl_somamers_tails")),
-                 HTML("<h2>SOMAmers In Tails</h2>
-  <p>SOMAmers In Tails represents the cumulative count of SOMAmer reagents (@tbl-SOMAmers-tails) within the QC control that exhibit a ratio outside the accepted accuracy range when compared to the reference.</p>
-  <p>Flagged SOMAmer reagents are typically retained for analysis, as accuracy across all assay runs serves as a robust quality metric, although it's not mandatory for identifying meaningful biological signals.</p>")
-                     ),
-            tabPanel("QC Percent In Tails", DT::dataTableOutput(ns("tbl_qc_perc_tails")),
-                     HTML("<h2>QC Percent In Tails</h2>
-  <p>QC Percent In Tails represents the percentage of SOMAmer reagents within the QC Control that fall outside the accepted accuracy range when compared to the reference.</p>
-  <p>The expected range for QC Percent In Tails is typically between 0.8 and 1.2.</p>")
-                     ),
-            tabPanel("Calibrator CVs",
-HTML("<h2>Calibrator CVs per Plate</h2>
- <p>This table presents the percentiles (10%, 50%, and 90%) for the distribution of Calibrator CVs (coefficient of variation) on each plate.</p>
-  <p>To assess the current assay's performance against historical data generated at the CHI on the same tissue type and assay version, refer to the Levey-Jennings chart of Calibrator CVs shown in @fig-levey-calibrator.</p>
-  <p>The table @tbl-ks-cal provides Kolmogorov-Smirnov test statistics for comparing the 10%, 50%, and 90% percentiles of the Calibrator CVs from the current study with historical data.</p>
+                       <p>Samples with unexpectedly low ANML fractions are flagged
+                       for review prior to inclusion in statistical analysis.</p>")
+
+               )
+             )
+    ),
+
+    tabPanel("Calibration & Reproducibility",
+             tabsetPanel(
+               tabPanel("Plate Scale",
+                        DT::dataTableOutput(ns("tbl_plate_scale")),
+                        HTML("<h2>Plate-Level Scaling Factors</h2>
+                       <p>Plate scale factors represent the median normalization
+                       ratio across all protein targets on a plate, adjusted for
+                       reference material signal.</p>
+
+                       <p><strong>Interpretation:</strong> Plate scale primarily
+                       reflects differences in overall signal intensity between runs,
+                       typically driven by scanner settings, reagent lot effects, or
+                       run-to-run variation in incubation temperature or timing.</p>
+
+                       <p><strong>Expected Range:</strong> 0.4 – 2.5</p>
+
+                       <p>Plates with scale factors outside this range suggest
+                       systematic differences in assay performance and should be
+                       investigated for technical root causes.</p>")
+               ),
+
+               tabPanel("Calibrator Signal in Tails",
+                        DT::dataTableOutput(ns("tbl_cal_perc")),
+                        HTML("<h2>Calibrator Percent in Tails</h2>
+                       <p>'Percent in tails' refers to the percentage of protein
+                       targets on a plate with calibration scale factors falling
+                       outside the expected accuracy range (0.6 – 1.4).</p>
+
+                       <p><strong>Interpretation:</strong> A small percentage of
+                       targets in the tails is expected and acceptable. Higher
+                       percentages suggest potential calibration issues, protein
+                       target-specific problems, or unexpected run-to-run variation.</p>
+
+                       <p><strong>Acceptance Criteria:</strong> Less than 10% of
+                       targets in tails is generally considered acceptable for a
+                       well-performing assay plate.</p>"
+                        )),
+
+               tabPanel("Protein Targets in Tails",
+                        DT::dataTableOutput(ns("tbl_somamers_tails")),
+                        HTML("<h2>Calibration Accuracy Assessment</h2>
+                 <p>This table summarizes the protein targets within quality control
+                 reference materials that exhibited accuracy metrics (calibration
+                 scale factors) falling outside the expected range (0.6 – 1.4).</p>
+
+                 <p><strong>Interpretation:</strong> Targets flagged as 'out of tails'
+                 may have protein-specific calibration challenges or may represent
+                 legitimate run-to-run variation. Many laboratories retain flagged
+                 targets in analysis, as even targets with suboptimal calibration
+                 accuracy often provide useful biological information.</p>
+
+                 <p><strong>Decision:</strong> Determine whether to include flagged
+                 targets in downstream analysis based on your analytical goals and
+                 confidence in quantification accuracy.")
+               ),
+
+               tabPanel("Reference Material Percent in Tails",
+                        DT::dataTableOutput(ns("tbl_qc_perc_tails")),
+                        HTML("<h2>Reference Material Accuracy Assessment</h2>
+                     <p>This table reports the percentage of protein targets in the
+                     quality control reference material that exhibited accuracy metrics
+                     (signal ratio to reference) falling outside the expected range
+                     (0.8 – 1.2).</p>
+
+                     <p><strong>Interpretation:</strong> The QC reference material
+                     serves as a consistency check for the assay. If too many targets
+                     are out-of-range in QC, this may indicate plate quality issues,
+                     reagent problems, or calibration drift.</p>
+
+                     <p><strong>Acceptance Criteria:</strong> Less than 20% of targets
+                     out-of-range is typically acceptable; higher percentages warrant
+                     investigation of systematic calibration or technical problems.</p>")
+               ),
+
+               tabPanel("Coefficient of Variation - Calibrator",
+                        HTML("<h2>Calibrator Reference Material Precision</h2>
+ <p>Coefficient of variation (CV) for calibration reference materials reflects
+ the reproducibility of protein abundance measurements across replicate assays.
+ This table presents the distribution (10th, 50th, 90th percentiles) of per-target
+ CV values for calibrator samples on each plate.</p>
+
+ <p><strong>Interpretation:</strong> The median (50th percentile) CV indicates
+ typical measurement precision. Values below 10% indicate good reproducibility;
+ values above 15% suggest potential technical problems.</p>
+
+ <p>Comparing current CV distribution to historical data (Levey-Jennings plot below)
+ helps assess whether current assay performance is typical or degraded.</p>"),
+
+                        DT::dataTableOutput(ns("tbl_cal_cv")),
+
+                        HTML("<h2>Calibrator Quality Trend Chart</h2>
+  <p>The Levey-Jennings plot displays the median coefficient of variation for
+  calibrator reference materials as a function of assay run (date-plate). Each
+  point represents one plate; the solid line connects sequential plates to show
+  temporal trends.</p>
+
+  <p><strong>Interpretation:</strong></p>
+  <ul>
+  <li><strong>Center line (dark blue):</strong> Historical median CV from reference data</li>
+  <li><strong>Dashed and dotted red lines:</strong> ±1 SD, ±2 SD, ±3 SD limits
+  (control limits)</li>
+  <li><strong>Shaded zones:</strong> Visual guides for ±1, ±2, and ±3 SD regions</li>
+  <li><strong>Orange points:</strong> Current study plates</li>
+  <li><strong>Blue points:</strong> Historical reference plates</li>
+  </ul>
+
+  <p><strong>Good Performance:</strong> Current study plates should fall within
+  ±2 SD of the reference median. Plates outside ±3 SD warrant investigation.</p>"),
+
+                        plotly::plotlyOutput(ns("levey_calibrator")),
+
+                        HTML("<h2>Statistical Comparison to Historical Data</h2>
+  <p>The Kolmogorov-Smirnov test quantitatively compares the distribution of
+  coefficient of variation values in your current study to historical reference
+  data. A high p-value (p > 0.05) indicates your data are consistent with historical
+  performance; a low p-value suggests statistically significant differences.</p>
+
+  <p><strong>Interpretation:</strong></p>
+  <ul>
+  <li><strong>p > 0.05:</strong> Current CV distribution is not significantly
+  different from historical reference (good)</li>
+  <li><strong>p < 0.05:</strong> Current CV distribution differs significantly
+  from historical reference (investigate cause)</li>
+  </ul>
 "),
-                     DT::dataTableOutput(ns("tbl_cal_cv")),
+                        DT::dataTableOutput(ns("tbl_ks_cal"))
+               ),
 
+               tabPanel("Coefficient of Variation - Reference Material",
+                        HTML("<h2>Reference Material Precision Metrics</h2>
+  <p>Coefficient of variation (CV) for external quality control reference materials
+  reflects assay reproducibility. This table presents the distribution of per-target
+  CV values for quality control samples across all assay plates.</p>
 
+  <p><strong>Expected Range:</strong> Median CV should be below 10% for acceptable
+  reproducibility.</p>"),
 
-HTML("<h2>Levey–Jennings Chart</h2>
-  <p>This chart displays the Levey–Jennings plot for the calibrator samples. Each dot represents the median coefficient of variation (CV) of the 7,596 SOMAmers of the calibrator samples per plate.</p>
-  <p>The solid, dashed, and dotted black horizontal lines represent the median, ± standard deviation, and ± 2 x standard deviation calculated based on the reference population.</p>
-  <p>SomaLogic recommends a median CV% of less than 10% as acceptable.</p>"),
-                     plotly::plotlyOutput(ns("levey_calibrator")),
+                        DT::dataTableOutput(ns("tbl_qc_cv")),
 
-HTML("<h2>Kolmogorov-Smirnov Test Statistics for Calibrator Samples</h2>
-  <p>This table provides the Kolmogorov-Smirnov test statistics to compare the 10th, 50th, and 90th percentiles of the coefficient of variation (CV) for calibrator samples in the current study with historical data.</p>
+                        HTML("<h2>Reference Material Quality Trend Chart</h2>
+  <p>The Levey-Jennings plot displays the median coefficient of variation for
+  external quality control reference materials across sequential assay runs.</p>
+
+  <p><strong>Interpretation:</strong> Points outside ±2 SD suggest assay performance
+  degradation; points outside ±3 SD are strong indicators of technical problems
+  requiring investigation and possible corrective action.</p>
 "),
-                   DT::dataTableOutput(ns("tbl_ks_cal"))
-            ),
-            tabPanel("SomaLogic's QC Sample CVs",
-                     HTML("<h2>Calibrator CVs per Plate</h2>
-  <p>This table displays the percentiles (10th, 50th, and 90th) for the distribution of coefficient of variation (CV) values for SomaLogic's QC samples across all plates.</p>
-  <p>To assess the current assay's performance against historical data generated by CHI on the same tissue type and assay version, refer to the Levey-Jennings chart of QC CVs (@fig-levey-somalogic-qc) and the Kolmogorov-Smirnov test statistics (@tbl-ks-qc), which compare the 10th, 50th, and 90th percentiles of the QC sample CVs between the current study and historical data.</p>
-  <p><strong>Expected Range:</strong> Median (50th percentile) CV should be below 10%.</p>"),
-                     DT::dataTableOutput(ns("tbl_qc_cv")),
-                     HTML("<h2>Levey–Jennings Chart</h2>
-  <p>This chart depicts the Levey–Jennings plot for the QC samples. Each dot represents the median coefficient of variation (CV) of the 7,596 SOMAmers within the QC samples per plate.</p>
-  <p>The solid, dashed, and dotted black horizontal lines represent the median, ± standard deviation, and ± 2 standard deviations, respectively, calculated based on the reference population.</p>
-  <p>SomaLogic recommends that the median CV% be less than 10% for acceptability.</p>
-"),
-                     plotly::plotlyOutput(ns("levey_somalogic_qc")),
-                     HTML("<h2>Kolmogorov-Smirnov Test Statistics</h2>
-  <p>This section provides the Kolmogorov-Smirnov test statistics for the SomaLogic QC samples.</p>"),
-                     DT::dataTableOutput(ns("tbl_ks_qc"))
-            )
-          )
- )
- )
+                        plotly::plotlyOutput(ns("levey_somalogic_qc")),
+
+                        HTML("<h2>Statistical Comparison to Historical Reference</h2>
+  <p>Kolmogorov-Smirnov test comparing current quality control CV distribution
+  to historical reference data.</p>"),
+
+                        DT::dataTableOutput(ns("tbl_ks_qc"))
+               )
+             )
+    )
+  )
 
 }
 
@@ -252,12 +477,12 @@ HTML("<h2>Kolmogorov-Smirnov Test Statistics for Calibrator Samples</h2>
 #' @export
 #' @keywords internal
 
-mod_table_server <- function(input, output, session, file){  #,batches,sim){
+mod_table_server <- function(input, output, session, file){
   ns <- session$ns
 
   output$tbl_sample_summary <- DT::renderDataTable({
     req(file$go())
-    withProgress(message = 'Generating tbl_sample_summary...', {
+    withProgress(message = 'Generating sample summary table...', {
       samp_summary <- as.data.frame.matrix(table(file$df()$PlateId, file$df()$SampleType)) %>%
         tibble::rownames_to_column("PlateId")
       numeric_columns <- samp_summary %>%
@@ -272,55 +497,33 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
 
 
   output$pca_sample_type <- plotly::renderPlotly({
-    withProgress(message = 'Generating pca_sample_type...', {
+    withProgress(message = 'Generating PCA plot...', {
       pca_dat <- file$df() %>% dplyr::select(starts_with("seq."))
       pca_res <- prcomp(pca_dat, scale=TRUE)
       pca_scores <- as.data.frame(pca_res$x)
-    #  plot_dat <- cbind(file$df()[, c("SampleType", "PlateId", "SampleId")], pca_scores) %>%
-    #  ,"AssayNotes","SampleNotes", "TimePoint", "SampleGroup"
 
-      ##New Code here
-          plot_dat <- cbind(file$df()[, c("SampleType", "PlateId", "SampleId","AssayNotes","SampleNotes", "TimePoint", "SampleGroup")], pca_scores) %>%
-         dplyr::mutate(HoverText = paste0("PlateId: ", PlateId, "<br>SampleId: ", SampleId))
+      plot_dat <- cbind(file$df()[, c("SampleType", "PlateId", "SampleId","AssayNotes","SampleNotes", "TimePoint", "SampleGroup")], pca_scores) %>%
+        dplyr::mutate(HoverText = paste0("PlateId: ", PlateId, "<br>SampleId: ", SampleId))
       variance_explained_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
       variance_explained_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
-    #  plot_pca <- ggplot2::ggplot(plot_dat, ggplot2::aes(x = PC1, y = PC2, color = SampleType, text = HoverText)) +
-        plot_pca <- ggplot2::ggplot(plot_dat, ggplot2::aes(x = PC1, y = PC2, color = get(input$pca_color), text = HoverText)) +
+
+      plot_pca <- ggplot2::ggplot(plot_dat, ggplot2::aes(x = PC1, y = PC2, color = get(input$pca_color), text = HoverText)) +
         ggplot2::geom_point() +
         ggplot2::labs(x = paste0("PC1 (", variance_explained_pc1, "%)"),
-             y = paste0("PC2 (", variance_explained_pc2, "%)"),
-             color = "Sample Type")
+                      y = paste0("PC2 (", variance_explained_pc2, "%)"),
+                      color = "Group")
       plotly::ggplotly(plot_pca)
     })
   })
-  output$standardization <-  renderUI({
-    # Code for standardization tab
-    # You can write a summary or visualization here based on your R Markdown document
-    #"This is the standardization tab. Add your code here."
-    p(style="text-align: justify; font-size = 25px",
-      "SomaScan assay data are first normalized using hybridization controls to mitigate variation within the run that comes from the readout steps:
-    transfer to Agilent slides, hybridization, wash, and scan. This is followed by median signal normalization across pooled calibrator replicates
-    within the run to mitigate within-run technical variation in the calibrator signal prior to use in scaling calculations. The set of ratios of the
-    calibrator reference value to the median of calibrator replicates for each SOMAmer reagent is calculated and decomposed into two terms:
-    plate scale - the median ratio, and calibration scale - the recalculated set of scale factors, one for each SOMAmer reagent.
-    Plate scale adjusts for overall signal intensity differences between runs. Calibration adjusts for SOMAmer reagent-specific assay differences between runs.
-    Median signal normalization is performed using Adaptive Normalization by Maximum Likelihood (ANML) for specimen types and studies shown to be consistent with
-    predefined population references or, alternatively, using median normalization to a study specific reference.
-    Acceptance criteria are shown below. Non-Core Matrices are often not subject to all data standardization procedures."
-    )
-     })
 
-#tbl_flag_pass_samples
+  #tbl_flag_pass_samples
   output$tbl_flag_pass_samples <- DT::renderDataTable({
-    withProgress(message = 'Generating tbl_flag_pass_samples...', {
-      # Code for samples passed or flagged tab
-      # You can create a data table based on your R Markdown document
-     # "This is the samples passed or flagged tab. Add your code here."
+    withProgress(message = 'Generating sample quality summary...', {
 
-     rowcheck_dat <- file$df() %>% dplyr::select(PlateId,SampleType, RowCheck)
-     rr<<-rowcheck_dat
-     pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
-     pp<<-pass_flag
+      rowcheck_dat <- file$df() %>% dplyr::select(PlateId,SampleType, RowCheck)
+      rr<<-rowcheck_dat
+      pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
+      pp<<-pass_flag
 
 
     })
@@ -328,11 +531,9 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
 
 
   output$pca_sample_rowcheck <- plotly::renderPlotly({
-    # Code for PCA plot based on quality criteria tab
-    # You can create a plotly plot based on your R Markdown document
-    "This is the PCA plot based on quality criteria tab. Add your code here."
-    withProgress(message = 'Generating pca_sample_rowcheck...', {
-    #  avoid_SOMAmers <- readxl::read_xlsx("d/v4.1_filtered_SOMAmers.xlsx")
+
+    withProgress(message = 'Generating PCA plot with quality flags...', {
+
       avoid_SOMAmers <- foodata2::load_data2()
       avoid_prot <- avoid_SOMAmers %>%
         dplyr::pull(SeqId) %>%
@@ -363,313 +564,225 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
       variance_explained_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
       variance_explained_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
 
-      # Create the scatter plot using ggplot2
       plot_samp_pca_flag <- ggplot2::ggplot(plot_samp_dat, ggplot2::aes(x = PC1, y = PC2, color = RowCheck, text = HoverText)) +
         ggplot2::geom_point() +
         ggplot2::labs(x = paste0("PC1 (", variance_explained_pc1, "%)"),
-             y = paste0("PC2 (", variance_explained_pc2, "%)"),
-             color = "Check")
+                      y = paste0("PC2 (", variance_explained_pc2, "%)"),
+                      color = "QC Status")
 
-      # Convert the ggplot to a plotly object
       plotly::ggplotly(plot_samp_pca_flag)
 
-})
+    })
   })
 
+  output$tbl_flagged_samples <- DT::renderDataTable({
 
+    withProgress(message = 'Generating flagged samples table...', {
 
+      total_flagged_samples <-file$df() %>% dplyr::filter(RowCheck == "FLAG") %>%
+        dplyr::select(PlateId, SampleId, SampleType)
 
-
-
-    output$tbl_flagged_samples <- DT::renderDataTable({
-      # Code for flagged samples per plate tab
-      # You can create a datatable based on your R Markdown document
-      "This is the flagged samples per plate tab. Add your code here."
-      withProgress(message = 'Generating tbl_flagged_samples...', {
-
-        total_flagged_samples <-file$df() %>% dplyr::filter(RowCheck == "FLAG") %>%
-          dplyr::select(PlateId, SampleId, SampleType)
-
-        total_flagged_samples
-
-      })
-    })
-
-
-
-    output$tbl_med_norm <- DT::renderDataTable({
-      # Code for median normalization scale factors tab
-      # You can create a datatable based on your R Markdown document
-      #"This is the median normalization scale factors tab. Add your code here."
-      withProgress(message = 'Generating tbl_med_norm...', {
-        rowcheck_dat <- file$df() %>%
-          dplyr::select(PlateId,SampleType, RowCheck)
-           rc<<-rowcheck_dat
-        pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
-
-        pfss<<-pass_flag
-        df_norm_scale <- file$df() %>% dplyr::select(PlateId, SampleId, SampleType, NormScale_0_005, NormScale_0_5, NormScale_20) %>%
-          dplyr::filter(SampleType == "Sample") %>%
-          dplyr::mutate(across(starts_with("NormScale"), ~ifelse( . < 0.4 | . > 2.5, "Flag", "Pass")))
-        dfff<<-df_norm_scale
-        df_norm_scale %>%
-          dplyr::select(NormScale_0_005, NormScale_0_5, NormScale_20) %>%
-          tidyr::gather(key = "Dilution Group", value = "Decision") %>%
-          dplyr::filter(Decision == "Pass") %>%
-          dplyr::group_by(`Dilution Group`) %>%
-          dplyr::summarise(Pass = dplyr::n()) %>%
-          dplyr::mutate(Flag = sum(pass_flag$Sample) - Pass,
-                        Total = sum(pass_flag$Sample)) #%>%
-
-
-      })
-    })
-
-
-
-    output$tbl_anml_fraction <- DT::renderDataTable({
-      withProgress(message = 'Generating tbl_anml_fraction...', {
-        # Code for ANML fraction used tab
-        # You can create a datatable based on your R Markdown document
-        "This is the ANML fraction used tab. Add your code here."
-
-        rowcheck_dat <- file$df() %>%
-          dplyr::select(PlateId,SampleType, RowCheck)
-        #   rc<<-rowcheck_dat
-        pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
-
-        df_anml_fraction <- file$df() %>% dplyr::select(PlateId, SampleId, SampleType, ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
-          dplyr::filter(SampleType == "Sample") %>%
-          dplyr::mutate(across(starts_with("ANMLFractionUsed"), ~ifelse( . < 0.3, "Flag", "Pass")))
-
-        df_anml_fraction %>% dplyr::select(ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
-          tidyr::gather(key ="Dilution Group", value = "Decision") %>%
-          dplyr::filter(Decision == "Pass") %>%
-          dplyr::group_by(`Dilution Group`) %>%
-          dplyr::summarise(Pass = dplyr::n()) %>%
-          dplyr::mutate("Flag" = sum(pass_flag$Sample) - Pass) %>%
-          dplyr::mutate("Total" = sum(pass_flag$Sample))
-
-
-
-      })
-    })
-
-
-
-#########
-
-
-    output$tbl_cal_perc <- DT::renderDataTable({
-      withProgress(message = 'Generating tbl_cal_perc...', {
-      #  if (input$dataInput_soma == 1) {
-      #    adat_header <- SomaDataIO::parseHeader("CHI-23-009_v4.1_Serum.hybNorm.medNormInt.plateScale.calibrate.anmlQC.qcCheck.anmlSMP.adat")
-      #  }
-      #  else{
-      #    inFile <- input$adat_file
-      #    file <- inFile$datapath
-      #    adat_header <- SomaDataIO::parseHeader(file)
-      #  }
-        adat_header<-file$df2()
-        kk<<-adat_header
-
-        keys <- names(adat_header$Header.Meta$HEADER)
-        kkk<<-keys
-
-        indices <- grep("^CalPlateTailPercent", keys)
-        ii<<-indices
-        # Extract the keys that match the pattern
-        keys_cal_perc_tails <- keys[indices]
-
-        # Use grep() to find indices of keys starting with "CalPlateTailTest"
-        indices <- grep("^CalPlateTailTest", keys)
-        # Extract the keys that match the pattern
-        keys_cal_perc_tails_test <- keys[indices]
-
-        # Generate df for values
-        df_cal_perc_tails_value <- data.frame("Value" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails])) %>%
-          tibble::rownames_to_column(var = "Plate") %>%
-          dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
-
-
-
-        # Generate df for pass falgs
-        df_cal_perc_tails_test <- data.frame("Plate Check" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails_test])) %>%
-          tibble::rownames_to_column(var = "Plate") %>%
-          dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
-
-
-        df_cal_perc_tails <- tibble::tibble("Acceptance Criteria" = "Less than 10%", dplyr::inner_join(df_cal_perc_tails_test, df_cal_perc_tails_value, by = "Plate")) %>%
-          dplyr::select(Plate, `Acceptance Criteria`, Plate.Check, Value) %>%
-          dplyr::mutate(Value = round(as.numeric(Value),2))
-        colnames(df_cal_perc_tails) <- c("Plate", "Acceptance Criteria", "Plate Check", "Value")
-
-        df_cal_perc_tails
-
-
-
-      })
+      total_flagged_samples
 
     })
+  })
 
+  output$tbl_med_norm <- DT::renderDataTable({
 
-    output$tbl_plate_scale <- DT::renderDataTable({
-      withProgress(message = 'Generating tbl_cal_perc...', {
+    withProgress(message = 'Generating normalization scale factors table...', {
+      rowcheck_dat <- file$df() %>%
+        dplyr::select(PlateId,SampleType, RowCheck)
+      rc<<-rowcheck_dat
+      pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
 
-        adat_header<-file$df2()
-
-
-
-        keys <- names(adat_header$Header.Meta$HEADER)
-        # Use grep() to find indices of keys starting with "PlateScale_Scalar"
-        indices <- grep("^PlateScale_Scalar", keys)
-        # Extract the keys that match the pattern
-        keys_with_plate_scale_scalar <- keys[indices]
-
-        # Use grep() to find indices of keys starting with "PlateScale_PassFlag"
-        indices <- grep("^PlateScale_PassFlag", keys)
-        # Extract the keys that match the pattern
-        keys_with_plate_scale_pass <- keys[indices]
-
-        # Generate df for values
-        df_plate_scale_value <- data.frame("Value" = unlist(adat_header$Header.Meta$HEADER[keys_with_plate_scale_scalar])) %>%
-          tibble::rownames_to_column(var = "Plate") %>%
-          dplyr::mutate(Plate = sub("^PlateScale_Scalar_", "", Plate))
-
-        # Generate df for pass falgs
-        df_plate_scale_pass <- data.frame("Plate Check" = unlist(adat_header$Header.Meta$HEADER[keys_with_plate_scale_pass])) %>%
-          tibble::rownames_to_column(var = "Plate") %>%
-          dplyr::mutate(Plate = sub("^PlateScale_PassFlag_", "", Plate))
-
-        # Join and clean
-        df_plate_scale <- tibble::tibble("Acceptance Criteria" = "0.4 - 2.5", dplyr::inner_join(df_plate_scale_pass, df_plate_scale_value, by = "Plate")) %>%
-          dplyr::select(Plate, `Acceptance Criteria`, Plate.Check, Value) %>%
-          dplyr::mutate(Value = round(as.numeric(Value),2))
-        colnames(df_plate_scale) <- c("Plate", "Acceptance Criteria", "Plate Check", "Value")
-
-
-        df_plate_scale
-
-
-
-      })
+      pfss<<-pass_flag
+      df_norm_scale <- file$df() %>% dplyr::select(PlateId, SampleId, SampleType, NormScale_0_005, NormScale_0_5, NormScale_20) %>%
+        dplyr::filter(SampleType == "Sample") %>%
+        dplyr::mutate(across(starts_with("NormScale"), ~ifelse( . < 0.4 | . > 2.5, "Flag", "Pass")))
+      dfff<<-df_norm_scale
+      df_norm_scale %>%
+        dplyr::select(NormScale_0_005, NormScale_0_5, NormScale_20) %>%
+        tidyr::gather(key = "Dilution Group", value = "Decision") %>%
+        dplyr::filter(Decision == "Pass") %>%
+        dplyr::group_by(`Dilution Group`) %>%
+        dplyr::summarise(Pass = dplyr::n()) %>%
+        dplyr::mutate(Flag = sum(pass_flag$Sample) - Pass,
+                      Total = sum(pass_flag$Sample))
 
     })
+  })
 
+  output$tbl_anml_fraction <- DT::renderDataTable({
+    withProgress(message = 'Generating ANML fraction table...', {
 
-    output$tbl_somamers_tails <- DT::renderDataTable({
-      withProgress(message = 'Generating tbl_cal_perc...', {
-        adat_header<-file$df2()
+      rowcheck_dat <- file$df() %>%
+        dplyr::select(PlateId,SampleType, RowCheck)
 
-        keys <- names(adat_header$Header.Meta$HEADER)
+      pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
 
-        # Get the header from the ADAT file
-        # Use grep() to find indices of keys starting with "CalPlateTailPercent"
-        indices <- grep("^CalPlateTailPercent", keys)
-        # Extract the keys that match the pattern
-        keys_cal_perc_tails <- keys[indices]
+      df_anml_fraction <- file$df() %>% dplyr::select(PlateId, SampleId, SampleType, ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
+        dplyr::filter(SampleType == "Sample") %>%
+        dplyr::mutate(across(starts_with("ANMLFractionUsed"), ~ifelse( . < 0.3, "Flag", "Pass")))
 
-        # Use grep() to find indices of keys starting with "CalPlateTailTest"
-        indices <- grep("^CalPlateTailTest", keys)
-        # Extract the keys that match the pattern
-        keys_cal_perc_tails_test <- keys[indices]
-
-        # Generate df for values
-        df_cal_perc_tails_value <- data.frame("Value" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails])) %>%
-          tibble::rownames_to_column(var = "Plate") %>%
-          dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
-
-        # Generate df for pass falgs
-        df_cal_perc_tails_test <- data.frame("Plate Check" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails_test])) %>%
-          tibble::rownames_to_column(var = "Plate") %>%
-          dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
-
-        # Join and clean
-        df_cal_perc_tails <- tibble::tibble("Acceptance Criteria" = "Less than 10%", dplyr::inner_join(df_cal_perc_tails_test, df_cal_perc_tails_value, by = "Plate")) %>%
-          dplyr::select(Plate, `Acceptance Criteria`, Plate.Check, Value) %>%
-          dplyr::mutate(Value = round(as.numeric(Value),2))
-        colnames(df_cal_perc_tails) <- c("Plate", "Acceptance Criteria", "Plate Check", "Value")
-
-        df_cal_perc_tails
-
-
-
-      })
+      df_anml_fraction %>% dplyr::select(ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
+        tidyr::gather(key ="Dilution Group", value = "Decision") %>%
+        dplyr::filter(Decision == "Pass") %>%
+        dplyr::group_by(`Dilution Group`) %>%
+        dplyr::summarise(Pass = dplyr::n()) %>%
+        dplyr::mutate("Flag" = sum(pass_flag$Sample) - Pass) %>%
+        dplyr::mutate("Total" = sum(pass_flag$Sample))
 
     })
+  })
 
-    output$tbl_qc_perc_tails <- DT::renderDataTable({
-      withProgress(message = 'Generating tbl_cal_perc...', {
+  output$tbl_plate_scale <- DT::renderDataTable({
+    withProgress(message = 'Generating plate scale table...', {
 
+      adat_header<-file$df2()
 
-        adat_header<-file$df2()
+      keys <- names(adat_header$Header.Meta$HEADER)
+      indices <- grep("^PlateScale_Scalar", keys)
+      keys_with_plate_scale_scalar <- keys[indices]
 
-        keys <- names(adat_header$Header.Meta$HEADER)
+      indices <- grep("^PlateScale_PassFlag", keys)
+      keys_with_plate_scale_pass <- keys[indices]
 
-        df_SOMAmers_tails <- data.frame("SeqId" = adat_header$Col.Meta$SeqId,
-                                        "EntrezGeneSymbol" = adat_header$Col.Meta$EntrezGeneSymbol,
-                                        "Organism" = adat_header$Col.Meta$Organism,
-                                        "ColCheck" = adat_header$Col.Meta$ColCheck)
+      df_plate_scale_value <- data.frame("Value" = unlist(adat_header$Header.Meta$HEADER[keys_with_plate_scale_scalar])) %>%
+        tibble::rownames_to_column(var = "Plate") %>%
+        dplyr::mutate(Plate = sub("^PlateScale_Scalar_", "", Plate))
 
-        tibble::tibble("SOMAmer" = "QC Ratio", "Acceptance Criteria" = "0.8 - 1.2") %>%
-          dplyr::bind_cols(data.frame(table(df_SOMAmers_tails$ColCheck)) %>%
-                      tidyr::spread(key = Var1, value = Freq)) %>%
-          dplyr::bind_cols(tibble::tibble("Total" =  .$FLAG + .$PASS)) #%>%
-        #  kbl() %>%
-        #  kable_paper()
+      df_plate_scale_pass <- data.frame("Plate Check" = unlist(adat_header$Header.Meta$HEADER[keys_with_plate_scale_pass])) %>%
+        tibble::rownames_to_column(var = "Plate") %>%
+        dplyr::mutate(Plate = sub("^PlateScale_PassFlag_", "", Plate))
 
+      df_plate_scale <- tibble::tibble("Acceptance Criteria" = "0.4 - 2.5", dplyr::inner_join(df_plate_scale_pass, df_plate_scale_value, by = "Plate")) %>%
+        dplyr::select(Plate, `Acceptance Criteria`, Plate.Check, Value) %>%
+        dplyr::mutate(Value = round(as.numeric(Value),2))
+      colnames(df_plate_scale) <- c("Plate", "Acceptance Criteria", "Plate Check", "Value")
 
-
-
-      })
-
-    })
-
-
-
-    output$tbl_cal_cv <- DT::renderDataTable({
-      withProgress(message = 'Calculating calibrator CVs...', {
-
-         df_cvs_all <- foodata2::load_data4()
-
-         df_cvs <-  file$df() %>% dplyr::filter(SampleType == "Calibrator") %>%
-          dplyr::select(PlateId, starts_with("seq.")) %>%
-          dplyr::group_by(PlateId) %>%
-          dplyr::summarise_if(is.numeric, function(x) sd(x)/mean(x)) %>%
-          dplyr::ungroup() %>%
-          tidyr::gather(key = "SeqId", value = "CV", -PlateId) %>%
-          dplyr::group_by(PlateId) %>%
-          dplyr::summarise("10%" = round(quantile(CV, 0.1) * 100, 1),
-                    "50%" = round(median(CV) * 100, 1),
-                    "90%" = round(quantile(CV, 0.9) * 100, 1))
-
-        colnames(df_cvs) <- c("Cal Precision(%)", "10%", "50%", "90%")
-
-        df_cvs
-      })
+      df_plate_scale
 
     })
+  })
 
-    output$levey_calibrator <- plotly::renderPlotly({
-      withProgress(message = 'Generating Levey-Jennings plot for calibrator CVs...', {
-      #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
-        df_cvs_all <- foodata2::load_data4()
-        adat_header<-file$df2()
+  output$tbl_cal_perc <- DT::renderDataTable({
+    withProgress(message = 'Generating calibrator accuracy table...', {
 
-        kk<<-adat_header
+      adat_header<-file$df2()
 
-        levey_cal <- plot_levey(file$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
-        plotly::ggplotly(levey_cal)
+      keys <- names(adat_header$Header.Meta$HEADER)
+      indices <- grep("^CalPlateTailPercent", keys)
+      keys_cal_perc_tails <- keys[indices]
 
+      indices <- grep("^CalPlateTailTest", keys)
+      keys_cal_perc_tails_test <- keys[indices]
 
-      })
+      df_cal_perc_tails_value <- data.frame("Value" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails])) %>%
+        tibble::rownames_to_column(var = "Plate") %>%
+        dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
+
+      df_cal_perc_tails_test <- data.frame("Plate Check" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails_test])) %>%
+        tibble::rownames_to_column(var = "Plate") %>%
+        dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
+
+      df_cal_perc_tails <- tibble::tibble("Acceptance Criteria" = "Less than 10%", dplyr::inner_join(df_cal_perc_tails_test, df_cal_perc_tails_value, by = "Plate")) %>%
+        dplyr::select(Plate, `Acceptance Criteria`, Plate.Check, Value) %>%
+        dplyr::mutate(Value = round(as.numeric(Value),2))
+      colnames(df_cal_perc_tails) <- c("Plate", "Acceptance Criteria", "Plate Check", "Value")
+
+      df_cal_perc_tails
 
     })
+  })
 
-    output$tbl_ks_cal<- DT::renderDataTable({
+  output$tbl_somamers_tails <- DT::renderDataTable({
+    withProgress(message = 'Generating protein target accuracy table...', {
+      adat_header<-file$df2()
 
-      withProgress(message = 'Generating tbl_ks_cal...', {
-      #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
+      keys <- names(adat_header$Header.Meta$HEADER)
+
+      indices <- grep("^CalPlateTailPercent", keys)
+      keys_cal_perc_tails <- keys[indices]
+
+      indices <- grep("^CalPlateTailTest", keys)
+      keys_cal_perc_tails_test <- keys[indices]
+
+      df_cal_perc_tails_value <- data.frame("Value" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails])) %>%
+        tibble::rownames_to_column(var = "Plate") %>%
+        dplyr::mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
+
+      df_cal_perc_tails_test <- data.frame("Plate Check" = unlist(adat_header$Header.Meta$HEADER[keys_cal_perc_tails_test])) %>%
+        tibble::rownames_to_column(var = "Plate") %>%
+        dplyr::mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
+
+      df_cal_perc_tails <- tibble::tibble("Acceptance Criteria" = "Less than 10%", dplyr::inner_join(df_cal_perc_tails_test, df_cal_perc_tails_value, by = "Plate")) %>%
+        dplyr::select(Plate, `Acceptance Criteria`, Plate.Check, Value) %>%
+        dplyr::mutate(Value = round(as.numeric(Value),2))
+      colnames(df_cal_perc_tails) <- c("Plate", "Acceptance Criteria", "Plate Check", "Value")
+
+      df_cal_perc_tails
+
+    })
+  })
+
+  output$tbl_qc_perc_tails <- DT::renderDataTable({
+    withProgress(message = 'Generating reference material accuracy table...', {
+
+      adat_header<-file$df2()
+
+      keys <- names(adat_header$Header.Meta$HEADER)
+
+      df_SOMAmers_tails <- data.frame("SeqId" = adat_header$Col.Meta$SeqId,
+                                      "EntrezGeneSymbol" = adat_header$Col.Meta$EntrezGeneSymbol,
+                                      "Organism" = adat_header$Col.Meta$Organism,
+                                      "ColCheck" = adat_header$Col.Meta$ColCheck)
+
+      tibble::tibble("Reference Material" = "QC Accuracy", "Acceptance Criteria" = "0.8 - 1.2") %>%
+        dplyr::bind_cols(data.frame(table(df_SOMAmers_tails$ColCheck)) %>%
+                           tidyr::spread(key = Var1, value = Freq)) %>%
+        dplyr::bind_cols(tibble::tibble("Total" =  .$FLAG + .$PASS))
+
+    })
+  })
+
+  output$tbl_cal_cv <- DT::renderDataTable({
+    withProgress(message = 'Calculating calibrator precision...', {
+
+      df_cvs_all <- foodata2::load_data4()
+
+      df_cvs <-  file$df() %>% dplyr::filter(SampleType == "Calibrator") %>%
+        dplyr::select(PlateId, starts_with("seq.")) %>%
+        dplyr::group_by(PlateId) %>%
+        dplyr::summarise_if(is.numeric, function(x) sd(x)/mean(x)) %>%
+        dplyr::ungroup() %>%
+        tidyr::gather(key = "SeqId", value = "CV", -PlateId) %>%
+        dplyr::group_by(PlateId) %>%
+        dplyr::summarise("10%" = round(quantile(CV, 0.1) * 100, 1),
+                         "50%" = round(median(CV) * 100, 1),
+                         "90%" = round(quantile(CV, 0.9) * 100, 1))
+
+      colnames(df_cvs) <- c("Plate", "10%", "50%", "90%")
+
+      df_cvs
+    })
+  })
+
+  output$levey_calibrator <- plotly::renderPlotly({
+    withProgress(message = 'Generating calibrator quality trend chart...', {
+      df_cvs_all <- foodata2::load_data4()
+      adat_header<-file$df2()
+
+      kk<<-adat_header
+
+      levey_cal <- plot_levey(file$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
+      plotly::ggplotly(levey_cal)
+
+    })
+  })
+
+  output$tbl_ks_cal<- DT::renderDataTable({
+
+    withProgress(message = "Performing statistical comparison...", {
         df_cvs_all <- foodata2::load_data4()
         df_cvs <- file$df()  %>% dplyr::filter(SampleType == "Calibrator") %>%
           dplyr::select(PlateId, starts_with("seq.")) %>%
@@ -682,17 +795,16 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
                     "50%" = round(median(CV) * 100, 1),
                     "90%" = round(quantile(CV, 0.9) * 100, 1))
 
-        colnames(df_cvs) <- c("Cal Precision(%)", "10%", "50%", "90%")
+        colnames(df_cvs) <- c("Plate", "10%", "50%", "90%")
 
         ks_test(df_cvs, df_cvs_all, sample_type = "Calibrator")
 
       })
-
     })
 
     output$tbl_qc_cv <- DT::renderDataTable({
 
-      withProgress(message = 'Calculating tbl_qc_cv...', {
+      withProgress(message = "Calculating reference material precision...", {
         df_cvs_qc <- file$df()   %>% dplyr::filter(SampleType == "QC") %>%
           dplyr::select(PlateId, starts_with("seq.")) %>%
           dplyr::summarise_if(is.numeric, function(x) sd(x)/mean(x)) %>%
@@ -711,14 +823,11 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
       })
     })
 
-
     output$levey_somalogic_qc <- plotly::renderPlotly({
 
-      withProgress(message = 'Calculating levey_somalogic_qc...', {
+      withProgress(message = "Generating reference material quality trend...", {
 
-      #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
         df_cvs_all <- foodata2::load_data4()
-
 
         adat_header<- file$df2()
 
@@ -727,18 +836,11 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
         levey_qc <- plot_levey(file$df(), adat_header, df_cvs_all, sample_type = "QC")
         plotly::ggplotly(levey_qc)
 
-
-
       })
-
     })
 
-
     output$tbl_ks_qc <- DT::renderDataTable({
-
-      withProgress(message = 'Calculating tbl_ks_qc...', {
-
-      #  df_cvs_all <- arrow::read_feather("d/serum-cvs.feather")
+      withProgress(message = "Performing statistical comparison...", {
         df_cvs_all <- foodata2::load_data4()
         df_cvs <- file$df()  %>% dplyr::filter(SampleType == "QC") %>%
           dplyr::select(PlateId, starts_with("seq.")) %>%
@@ -751,55 +853,12 @@ mod_table_server <- function(input, output, session, file){  #,batches,sim){
                     "50%" = round(median(CV) * 100, 1),
                     "90%" = round(quantile(CV, 0.9) * 100, 1))
 
-        colnames(df_cvs) <- c("Cal Precision(%)", "10%", "50%", "90%")
-
-
+        colnames(df_cvs) <- c("Plate", "10%", "50%", "90%")
         ks_test(df_cvs, df_cvs_all, sample_type = "QC")
-
       })
     })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
+
 ## To be copied in the UI
 # mod_table_ui("table_1")
 

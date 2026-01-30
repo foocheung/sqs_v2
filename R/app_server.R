@@ -9,6 +9,10 @@ library(rmarkdown)
 library(knitr)
 library(kableExtra)
 library(forcats)
+library(tidyselect)
+
+# Source global functions (includes plot_levey and ks_test)
+
 
 # ---- Helpers (bytes, duration, CV, Levey-Jennings, HTML inject) ----
 
@@ -36,7 +40,7 @@ safe_cv <- function(x) {
 # Inject a small HTML footer with run metadata into the report
 .inject_report_footer <- function(html_path, run_time, duration_str, size_str) {
   footer <- paste0(
-    "\n<!-- SQS run metadata -->\n",
+    "\n<!-- QC Report metadata -->\n",
     "<div style='margin-top:2rem;padding-top:1rem;border-top:1px solid #ddd;",
     "font-size:0.9em;color:#555;'>\n",
     "<strong>Report generated:</strong> ", run_time, "<br/>\n",
@@ -62,11 +66,6 @@ safe_cv <- function(x) {
   invisible(TRUE)
 }
 
-# Namespaced, robust Levey–Jennings plot (median-centered by default)
-
-# Note: plot_levey function now sourced from global.R
-
-
 # ============================================================================
 # MAIN SERVER FUNCTION
 # ============================================================================
@@ -78,6 +77,9 @@ app_server <- function(input, output, session) {
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
   callModule(mod_table_server, "table_ui_1", metafile)
+
+  # NEW: Data Export Module
+  mod_dataExport_server("dataExport_1", metafile)
 
   # ---- Reactive values to store generated HTML ----
   html_report <- reactiveVal(NULL)
@@ -95,7 +97,7 @@ app_server <- function(input, output, session) {
         # Workspace setup
         shiny::incProgress(0.1, detail = "Setting up workspace...")
         timestamp <- format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
-        temp_dir <- file.path(tempdir(), paste0("somascan_", timestamp))
+        temp_dir <- file.path(tempdir(), paste0("proteomics_qc_", timestamp))
         dir.create(temp_dir, showWarnings = FALSE, recursive = TRUE)
         plot_dir <- file.path(temp_dir, "plots")
         dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
@@ -190,14 +192,14 @@ app_server <- function(input, output, session) {
     tags$iframe(
       srcdoc = html_report(),
       style = "width: 100%; height: 900px; border: none;",
-      title = "SomaScan QC Report"
+      title = "Proteomics QC Report"
     )
   })
 
   # ---- DOWNLOAD BUTTON ----
   output$downloadReport <- downloadHandler(
     filename = function() {
-      paste0("SomaScan_QC_Report_", Sys.Date(), ".html")
+      paste0("Proteomics_QC_Report_", Sys.Date(), ".html")
     },
     content = function(file) {
       req(html_report())
@@ -219,10 +221,7 @@ app_server <- function(input, output, session) {
     }
   )
 
-  # ============================================================================
-  # ---- SAVE TO FOLDER BUTTON - OPTION 1: Modal Dialog ----
-  # ============================================================================
-
+  # ---- SAVE LOCAL BUTTON ----
   observeEvent(input$saveReportLocal, {
     req(html_report())
 
@@ -232,259 +231,214 @@ app_server <- function(input, output, session) {
         type = "error",
         duration = 5
       )
-      return(NULL)
+      return()
     }
-
-    # Determine default directory based on OS
-    if (.Platform$OS.type == "windows") {
-      default_path <- file.path(Sys.getenv("USERPROFILE"), "Documents", "SQS_Reports")
-    } else {
-      default_path <- path.expand("~/SQS_Reports")
-    }
-
-    # Show modal dialog for user to choose save location
-    showModal(modalDialog(
-      title = "Save Report - Choose Location",
-      size = "m",
-
-      # File path input
-      textInput(
-        inputId = "savePath",
-        label = "Save Location (Full Path):",
-        value = default_path,
-        width = "100%",
-        placeholder = "Enter directory path"
-      ),
-
-      # Info text with examples
-      div(
-        style = "margin-top: 15px; padding: 10px; background-color: #f0f0f0; border-radius: 5px;",
-        p(
-          strong("Example paths:"),
-          br(),
-          span(
-            code("Windows: C:/Users/YourName/Documents/SQS_Reports"),
-            style = "display: block; margin: 5px 0;"
-          ),
-          span(
-            code("Mac/Linux: ~/SQS_Reports or /home/username/SQS_Reports"),
-            style = "display: block; margin: 5px 0;"
-          ),
-          style = "font-size: 0.9em; color: #333; margin: 0;"
-        )
-      ),
-
-      # Tip text
-      p(
-        em("💡 Tip: Use '~' to represent your home directory"),
-        style = "font-size: 0.85em; color: #666; margin-top: 10px; margin-bottom: 0;"
-      ),
-
-      # Footer buttons
-      footer = tagList(
-        # Cancel button
-        modalButton("Cancel"),
-
-        # Save button
-        actionButton(
-          "confirmSaveReport",
-          "Save Report",
-          class = "btn-success",
-          style = "margin-left: 10px;"
-        )
-      )
-    ))
-  })
-
-  # ---- Handle Save Confirmation ----
-  observeEvent(input$confirmSaveReport, {
-    req(input$savePath)
-    req(html_report())
 
     tryCatch({
-      # Get user-provided path and expand ~ for home directory
-      save_dir <- path.expand(input$savePath)
+      default_name <- paste0("Proteomics_QC_Report_", Sys.Date(), ".html")
+      save_path <- file.choose(new = TRUE)
 
-      # Validate directory path
-      if (save_dir == "" || is.na(save_dir)) {
+      if (!is.null(save_path) && nzchar(save_path)) {
+        file.copy(
+          session$userData$report_file,
+          save_path,
+          overwrite = TRUE
+        )
         showNotification(
-          "Please enter a valid directory path",
-          type = "error",
+          paste("Report saved to:", save_path),
+          type = "message",
           duration = 5
         )
-        return(NULL)
       }
-
-      # Create directory if it doesn't exist
-      if (!dir.exists(save_dir)) {
-        dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
-      }
-
-      # Generate filename with timestamp
-      timestamp <- if (!is.null(session$userData$report_timestamp)) {
-        session$userData$report_timestamp
-      } else {
-        format(Sys.time(), "%Y-%m-%d_%H-%M-%S")
-      }
-
-      filename <- paste0("SomaScan_QC_Report_", timestamp, ".html")
-      save_path <- file.path(save_dir, filename)
-
-      # Copy report file to chosen location
-      file.copy(
-        session$userData$report_file,
-        save_path,
-        overwrite = TRUE
-      )
-
-      # Remove modal dialog
-      removeModal()
-
-      # Show success notification with file details
-      showNotification(
-        HTML(paste(
-          "<strong>✓ Report Saved Successfully!</strong><br/><br/>",
-          "<strong>Location:</strong><br/>",
-          save_dir, "<br/><br/>",
-          "<strong>Filename:</strong><br/>",
-          filename
-        )),
-        type = "message",
-        duration = 10
-      )
-
     }, error = function(e) {
       showNotification(
-        paste("Error saving report:", conditionMessage(e)),
-        type = "error",
-        duration = 10
+        "Save operation cancelled or failed",
+        type = "warning",
+        duration = 3
       )
     })
   })
 
-  # ============================================================================
-  # PLOT GENERATION FUNCTION
-  # ============================================================================
-
+  # ---- PLOT GENERATION FUNCTION ----
   generate_plots <- function(metafile, plot_dir) {
-    # PCA: Sample Type
-    pca_dat <- metafile$df() %>% dplyr::select(starts_with("seq."))
-    pca_res <- prcomp(pca_dat, scale = TRUE)
-    pca_scores <- as.data.frame(pca_res$x)
-    plot_dat <- cbind(
-      metafile$df()[, c("SampleType", "PlateId", "SampleId", "AssayNotes", "SampleNotes", "TimePoint", "SampleGroup")],
-      pca_scores
-    ) %>% dplyr::mutate(HoverText = paste0("PlateId: ", PlateId, "<br>SampleId: ", SampleId))
-    variance_explained_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
-    variance_explained_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
-    plot_pca <- ggplot2::ggplot(plot_dat, ggplot2::aes(x = PC1, y = PC2, color = SampleType)) +
-      ggplot2::geom_point() +
-      ggplot2::labs(
-        x = paste0("PC1 (", variance_explained_pc1, "%)"),
-        y = paste0("PC2 (", variance_explained_pc2, "%)"),
-        color = "Sample Type"
+    # PCA plot
+    pca_file <- file.path(plot_dir, "pca_sample_type.png")
+    p_pca <- tryCatch({
+      # Perform PCA
+      pca_res <- stats::prcomp(
+        metafile$df() %>%
+          dplyr::select(tidyselect::starts_with("seq.")) %>%
+          as.matrix(),
+        scale. = TRUE
+      )
+
+      # Calculate variance explained
+      var_exp <- pca_res$sdev^2 / sum(pca_res$sdev^2) * 100
+
+      # Create data frame for plotting
+      pca_scores <- as.data.frame(pca_res$x)
+      plot_data <- cbind(
+        metafile$df()[, c("SampleType", "PlateId", "SampleId")],
+        pca_scores
+      )
+
+      # Create ggplot directly (avoids autoplot issues)
+      ggplot2::ggplot(
+        plot_data,
+        ggplot2::aes(x = PC1, y = PC2, color = SampleType)
       ) +
-      ggplot2::theme_minimal()
-    pca_sample_type_file <- file.path(plot_dir, "pca_sample_type.png")
-    ggplot2::ggsave(pca_sample_type_file, plot_pca, width = 8, height = 6, dpi = 300)
+        ggplot2::geom_point(size = 3, alpha = 0.7) +
+        ggplot2::labs(
+          title = "Principal Component Analysis by Sample Type",
+          x = paste0("PC1 (", round(var_exp[1], 1), "%)"),
+          y = paste0("PC2 (", round(var_exp[2], 1), "%)"),
+          color = "Sample Type"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+          plot.title = ggplot2::element_text(face = "bold", size = 12),
+          legend.position = "bottom"
+        )
 
-    # PCA: RowCheck
-    avoid_SOMAmers <- foodata::load_data2()
-    avoid_prot <- avoid_SOMAmers %>%
-      dplyr::pull(SeqId) %>% paste0("seq.", .) %>% stringr::str_replace_all("-", ".")
-    adat_samp_tbl <- metafile$df() %>%
-      dplyr::filter(SampleType == "Sample") %>%
-      dplyr::select(PlateId, SampleId, RowCheck, starts_with("seq.")) %>%
-      dplyr::select(!all_of(avoid_prot))
-    pca_dat <- metafile$df() %>% dplyr::filter(SampleType == "Sample") %>%
-      dplyr::select(starts_with("seq."))
-    pca_res <- prcomp(pca_dat, scale = TRUE)
-    pca_scores <- as.data.frame(pca_res$x)
-    plot_samp_dat <- cbind(adat_samp_tbl[, c("PlateId", "SampleId", "RowCheck")], pca_scores) %>%
-      dplyr::mutate(HoverText = paste0("PlateId: ", PlateId, "<br>SampleId: ", SampleId))
-    variance_explained_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
-    variance_explained_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
-    plot_samp_pca_flag <- ggplot2::ggplot(plot_samp_dat, ggplot2::aes(x = PC1, y = PC2, color = RowCheck)) +
-      ggplot2::geom_point() +
-      ggplot2::labs(
-        x = paste0("PC1 (", variance_explained_pc1, "%)"),
-        y = paste0("PC2 (", variance_explained_pc2, "%)"),
-        color = "Check"
-      ) +
-      ggplot2::theme_minimal()
-    pca_rowcheck_file <- file.path(plot_dir, "pca_sample_rowcheck.png")
-    ggplot2::ggsave(pca_rowcheck_file, plot_samp_pca_flag, width = 8, height = 6, dpi = 300)
+    }, error = function(e) {
+      ggplot2::ggplot() +
+        ggplot2::annotate(
+          "text",
+          x = 0.5,
+          y = 0.5,
+          label = paste("PCA failed:", e$message),
+          size = 4,
+          color = "red"
+        ) +
+        ggplot2::theme_void()
+    })
 
-    # Levey–Jennings plots
-    df_cvs_all <- foodata::load_data4()
-    adat_header <- metafile$df2()
-    levey_cal <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "Calibrator")
-    levey_calibrator_file <- file.path(plot_dir, "levey_calibrator.png")
-    ggplot2::ggsave(levey_calibrator_file, levey_cal, width = 8, height = 6, dpi = 300)
+    ggplot2::ggsave(pca_file, p_pca, width = 8, height = 6, dpi = 150)
 
-    levey_qc <- plot_levey(metafile$df(), adat_header, df_cvs_all, sample_type = "QC")
-    levey_somalogic_qc_file <- file.path(plot_dir, "levey_somalogic_qc.png")
-    ggplot2::ggsave(levey_somalogic_qc_file, levey_qc, width = 8, height = 6, dpi = 300)
+    # Levey-Jennings plots
+    levey_cal_file <- file.path(plot_dir, "levey_calibrator.png")
+    levey_qc_file <- file.path(plot_dir, "levey_somalogic_qc.png")
+
+    df_cvs_all <- tryCatch({
+      foodata2::load_data4()
+    }, error = function(e) {
+      NULL
+    })
+
+    if (!is.null(df_cvs_all)) {
+
+      adat_header <- metafile$df2()
+
+      p_levey_cal <- tryCatch({
+        plot_levey(
+          metafile$df(),
+          adat_header,
+          df_cvs_all,
+          sample_type = "Calibrator",
+          center = "median",
+          show_zones = TRUE
+        )
+      }, error = function(e) {
+        ggplot2::ggplot() +
+          ggplot2::annotate(
+            "text",
+            x = 0.5,
+            y = 0.5,
+            label = paste("Calibrator trend plot failed:", e$message),
+            size = 4,
+            color = "red"
+          ) +
+          ggplot2::theme_void()
+      })
+      ggplot2::ggsave(levey_cal_file, p_levey_cal, width = 10, height = 6, dpi = 150)
+
+      p_levey_qc <- tryCatch({
+        plot_levey(
+          metafile$df(),
+          adat_header,
+          df_cvs_all,
+          sample_type = "QC",
+          center = "median",
+          show_zones = TRUE
+        )
+      }, error = function(e) {
+        ggplot2::ggplot() +
+          ggplot2::annotate(
+            "text",
+            x = 0.5,
+            y = 0.5,
+            label = paste("Reference material trend plot failed:", e$message),
+            size = 4,
+            color = "red"
+          ) +
+          ggplot2::theme_void()
+      })
+      ggplot2::ggsave(levey_qc_file, p_levey_qc, width = 10, height = 6, dpi = 150)
+    } else {
+      # Create placeholder plots
+      placeholder_plot <- ggplot2::ggplot() +
+        ggplot2::annotate(
+          "text",
+          x = 0.5,
+          y = 0.5,
+          label = "Historical data not available",
+          size = 4,
+          color = "grey50"
+        ) +
+        ggplot2::theme_void()
+      ggplot2::ggsave(levey_cal_file, placeholder_plot, width = 10, height = 6, dpi = 150)
+      ggplot2::ggsave(levey_qc_file, placeholder_plot, width = 10, height = 6, dpi = 150)
+    }
 
     list(
-      pca_sample_type     = pca_sample_type_file,
-      pca_sample_rowcheck = pca_rowcheck_file,
-      levey_calibrator    = levey_calibrator_file,
-      levey_somalogic_qc  = levey_somalogic_qc_file
+      pca_sample_type = pca_file,
+      levey_calibrator = levey_cal_file,
+      levey_somalogic_qc = levey_qc_file
     )
   }
 
-  # ============================================================================
-  # R MARKDOWN REPORT GENERATION
-  # ============================================================================
-
+  # ---- R MARKDOWN REPORT GENERATION ----
   generate_rmd_report_html <- function(metafile, plot_files, temp_dir) {
-
-    # ---- Helper: Safe CV ----
-    safe_cv <- function(x) {
-      m <- mean(x, na.rm = TRUE)
-      if (!is.finite(m) || m == 0) return(NA_real_)
-      sd(x, na.rm = TRUE) / m
-    }
-
     # Sample summary
-    samp_summary <- as.data.frame.matrix(table(metafile$df()$PlateId, metafile$df()$SampleType)) %>%
-      tibble::rownames_to_column("PlateId")
+    samp_summary <- metafile$df() %>%
+      dplyr::group_by(SampleType) %>%
+      dplyr::summarise(Count = dplyr::n(), .groups = "drop")
 
-    # Flags
+    # Flagged samples
     flagged_samples <- metafile$df() %>%
       dplyr::filter(RowCheck == "FLAG") %>%
-      dplyr::select(PlateId, SampleId, SampleType)
+      dplyr::select(PlateId, SampleId, SampleType, RowCheck) %>%
+      dplyr::arrange(PlateId, SampleId)
 
-    rowcheck_dat <- metafile$df() %>%
-      dplyr::select(PlateId, SampleType, RowCheck)
-    pass_flag <- as.data.frame.matrix(table(rowcheck_dat$RowCheck, rowcheck_dat$SampleType))
-
-    # Median norm
-    df_norm_scale <- metafile$df() %>%
-      dplyr::select(PlateId, SampleId, SampleType, NormScale_0_005, NormScale_0_5, NormScale_20) %>%
-      dplyr::filter(SampleType == "Sample") %>%
-      dplyr::mutate(dplyr::across(dplyr::starts_with("NormScale"),
-                                  ~ ifelse(. < 0.4 | . > 2.5, "Flag", "Pass")))
-    med_norm_summary <- df_norm_scale %>%
-      dplyr::select(NormScale_0_005, NormScale_0_5, NormScale_20) %>%
-      tidyr::gather(key = "Dilution Group", value = "Decision") %>%
-      dplyr::filter(Decision == "Pass") %>%
-      dplyr::group_by(`Dilution Group`) %>%
-      dplyr::summarise(Pass = dplyr::n(), .groups = "drop") %>%
-      dplyr::mutate(
-        Flag  = sum(pass_flag$Sample) - Pass,
-        Total = sum(pass_flag$Sample)
+    # Median normalization summary
+    med_norm_summary <- metafile$df() %>%
+      dplyr::select(SampleType, NormScale_20) %>%
+      dplyr::group_by(SampleType) %>%
+      dplyr::summarise(
+        Mean = round(mean(NormScale_20, na.rm = TRUE), 2),
+        SD   = round(sd(NormScale_20, na.rm = TRUE), 2),
+        .groups = "drop"
       )
 
-    # ANML fraction
-    df_anml_fraction <- metafile$df() %>%
-      dplyr::select(PlateId, SampleId, SampleType, ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
+    # ANML summary
+    anml_summary <- metafile$df() %>%
       dplyr::filter(SampleType == "Sample") %>%
-      dplyr::mutate(dplyr::across(dplyr::starts_with("ANMLFractionUsed"),
-                                  ~ ifelse(. < 0.3, "Flag", "Pass")))
-    anml_summary <- df_anml_fraction %>%
-      dplyr::select(ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
+      dplyr::select(ANMLFractionUsed_20) %>%
+      dplyr::summarise(
+        `10%` = round(quantile(ANMLFractionUsed_20, 0.1, na.rm = TRUE), 2),
+        `50%` = round(median(ANMLFractionUsed_20, na.rm = TRUE), 2),
+        `90%` = round(quantile(ANMLFractionUsed_20, 0.9, na.rm = TRUE), 2)
+      )
+
+    # Pass/flag summary by dilution
+    pass_flag <- metafile$df() %>%
+      dplyr::filter(SampleType == "Sample") %>%
+      dplyr::group_by(PlateId) %>%
+      dplyr::summarise(Sample = dplyr::n(), .groups = "drop")
+
+    med_norm_flag <- metafile$df() %>%
+      dplyr::select(PlateId, NormScale_20, NormScale_0_005, NormScale_0_5) %>%
+      dplyr::mutate(dplyr::across(-PlateId, ~ dplyr::if_else(. > 0.4 & . < 2.5, "Pass", "Fail"))) %>%
       tidyr::gather(key = "Dilution Group", value = "Decision") %>%
       dplyr::filter(Decision == "Pass") %>%
       dplyr::group_by(`Dilution Group`) %>%
@@ -558,7 +512,7 @@ app_server <- function(input, output, session) {
     n_pass  <- if (!is.na(counts["PASS"])) as.integer(counts["PASS"]) else 0L
     n_total <- n_flag + n_pass
     somamers_summary <- tibble::tibble(
-      `SOMAmer` = "QC Ratio",
+      `Protein Target` = "QC Accuracy",
       `Acceptance Criteria` = "0.8 - 1.2",
       `FLAG` = n_flag,
       `PASS` = n_pass,
@@ -618,7 +572,8 @@ app_server <- function(input, output, session) {
     # R Markdown body
     c(
       '---',
-      'title: "SomaScan Assay Quality Statement (SQS)"',
+      'title: "Plasma Proteomics Data Quality Control Report"',
+      'subtitle: "Standardization and Reproducibility Assessment"',
       paste0('date: "', Sys.Date(), '"'),
       'output:',
       '  html_document:',
@@ -636,70 +591,76 @@ app_server <- function(input, output, session) {
       '```',
       '',
       '# Introduction',
-      'This report provides a quality control overview of SomaScan assay data.',
+      'This report documents standardized quality control assessment of plasma proteomics assay data.',
       '',
       '# Experimental Design',
       '```{r sample_summary}',
       paste0('samp_summary <- readRDS("', file.path(temp_dir, "samp_summary.rds"), '")'),
-      'kable(samp_summary, caption = "Sample Summary") %>% kable_styling()',
+      'kable(samp_summary, caption = "Sample Composition Summary") %>% kable_styling()',
       '```',
       '',
-      '# Sample Type PCA',
+      '# Sample Type Separation',
       paste0('![](', plot_files$pca_sample_type, ')'),
       '',
-      '# Sample Normalization',
+      '# Sample Quality Assessment',
       '## Flagged Samples',
       '```{r flagged_samples}',
       paste0('flagged_samples <- readRDS("', file.path(temp_dir, "flagged_samples.rds"), '")'),
-      'if (nrow(flagged_samples) == 0) { "No flagged samples." } else { kable(flagged_samples) %>% kable_styling() }',
+      'if (nrow(flagged_samples) == 0) { cat("No samples flagged for quality concerns.") } else { kable(flagged_samples) %>% kable_styling() }',
       '```',
       '',
-      '## Median Normalization Scale Factors',
+      '## Normalization Scale Factors',
       '```{r med_norm_summary}',
       paste0('med_norm_summary <- readRDS("', file.path(temp_dir, "med_norm_summary.rds"), '")'),
-      'kable(med_norm_summary) %>% kable_styling()',
+      'kable(med_norm_summary, caption = "Normalization Scale Factor Summary") %>% kable_styling()',
       '```',
       '',
       '## ANML Fraction Used',
       '```{r anml_summary}',
       paste0('anml_summary <- readRDS("', file.path(temp_dir, "anml_summary.rds"), '")'),
-      'kable(anml_summary) %>% kable_styling()',
+      'kable(anml_summary, caption = "ANML Fraction Summary") %>% kable_styling()',
       '```',
       '',
-      '# Calibration',
+      '# Calibration & Reproducibility',
       '## Plate Scale',
       '```{r plate_scale}',
       paste0('df_plate_scale <- readRDS("', file.path(temp_dir, "df_plate_scale.rds"), '")'),
       'kable(df_plate_scale) %>% kable_styling()',
       '```',
       '',
-      '## Calibrator Percent in Tails',
+      '## Calibrator Signal in Tails',
       '```{r cal_perc_tails}',
       paste0('df_cal_perc_tails <- readRDS("', file.path(temp_dir, "df_cal_perc_tails.rds"), '")'),
       'kable(df_cal_perc_tails) %>% kable_styling()',
       '```',
       '',
-      '## SOMAmers in Tails',
+      '## Protein Targets in Tails',
       '```{r somamers_summary}',
       paste0('somamers_summary <- readRDS("', file.path(temp_dir, "somamers_summary.rds"), '")'),
-      'kable(somamers_summary) %>% kable_styling()',
+      'kable(somamers_summary, caption = "Calibration Accuracy Assessment") %>% kable_styling()',
       '```',
       '',
-      '## Calibrator CVs per Plate',
+      '## Calibrator Precision per Plate',
       '```{r df_cvs}',
       paste0('df_cvs <- readRDS("', file.path(temp_dir, "df_cvs.rds"), '")'),
-      'kable(df_cvs) %>% kable_styling()',
+      'kable(df_cvs, caption = "Calibrator Coefficient of Variation") %>% kable_styling()',
       '```',
       '',
+      '### Calibrator Quality Trend',
       paste0('![](', plot_files$levey_calibrator, ')'),
       '',
-      '## QC Sample CVs',
+      '## Reference Material Precision',
       '```{r qc_cv_summary}',
       paste0('qc_cv_summary <- readRDS("', file.path(temp_dir, "qc_cv_summary.rds"), '")'),
-      'kable(qc_cv_summary) %>% kable_styling()',
+      'kable(qc_cv_summary, caption = "Reference Material Coefficient of Variation") %>% kable_styling()',
       '```',
       '',
-      paste0('![](', plot_files$levey_somalogic_qc, ')')
+      '### Reference Material Quality Trend',
+      paste0('![](', plot_files$levey_somalogic_qc, ')'),
+      '',
+      '# Conclusion',
+      'Quality control assessment is complete. Review flagged samples and metrics above.',
+      'Contact your analytical team for interpretation and next steps.'
     )
   }
 }

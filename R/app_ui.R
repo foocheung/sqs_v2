@@ -1,6 +1,6 @@
-#' The Application User-Interface - IMPROVED VERSION
+#' The Application User-Interface - IMPROVED VERSION WITH DATA EXPORT
 #'
-#' Enhanced UI with better styling, tooltips, and user experience
+#' Enhanced UI with data export functionality and neutral terminology
 #'
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
@@ -100,9 +100,9 @@ app_ui <- function() {
         class = "main-header",
         h2(
           icon("chart-line"),
-          " SomaScan Quality Statement (SQS)"
+          " Plasma Proteomics Quality Control Report"
         ),
-        p("Comprehensive quality control and reporting for SomaScan assay data")
+        p("Comprehensive standardization assessment and quality control for proteomics assay data")
       ),
 
       # Main Layout
@@ -120,7 +120,7 @@ app_ui <- function() {
             div(
               class = "info-text",
               icon("info-circle"),
-              " Upload your SomaScan ADAT file to begin analysis"
+              " Upload your assay data file to begin analysis"
             )
           ),
 
@@ -147,7 +147,7 @@ app_ui <- function() {
           # Download/Save Section
           div(
             class = "card-section",
-            h4(icon("download"), " Export Options"),
+            h4(icon("download"), " Report Export"),
 
             downloadButton(
               "downloadReport",
@@ -174,9 +174,9 @@ app_ui <- function() {
             h4(icon("info"), " Information"),
             p(
               style = "font-size: 12px; color: #6c757d; margin: 0;",
-              strong("Version:"), " 2.0 (Enhanced)", br(),
+              strong("Version:"), " 2.1 (With Data Export)", br(),
               strong("Max Upload:"), " 500 MB", br(),
-              strong("Features:"), " Enhanced Levey-Jennings plots, QC zones, improved UX"
+              strong("Features:"), " QC Assessment, Reports, Data Export"
             )
           )
         ),
@@ -196,39 +196,39 @@ app_ui <- function() {
               div(
                 class = "tab-content",
                 h3("Data Overview"),
-                p("View and analyze your uploaded SomaScan data"),
+                p("View and analyze your proteomics assay data"),
                 hr(),
                 mod_table_ui("table_ui_1", "Meta Data")
               )
             ),
 
-            # ---- TAB 2: Quality Control Plots ----
-            tabPanel(
-              title = tagList(icon("chart-area"), " QC Plots"),
-              value = "qc_tab",
-              div(
-                class = "tab-content",
-                h3("Quality Control Visualizations"),
-                p("Interactive quality control plots including Levey-Jennings charts"),
-                hr(),
-
-                fluidRow(
-                  column(
-                    width = 12,
-                    div(
-                      class = "card-section",
-                      h4("Plot Options"),
-                      p(
-                        class = "info-text",
-                        "QC plots will appear here after generating the report. ",
-                        "Enhanced Levey-Jennings plots include color-coded QC zones ",
-                        "(±1 SD, ±2 SD, ±3 SD) for better quality monitoring."
-                      )
-                    )
-                  )
-                )
-              )
-            ),
+            # # ---- TAB 2: Quality Control Plots ----
+            # tabPanel(
+            #   title = tagList(icon("chart-area"), " QC Plots"),
+            #   value = "qc_tab",
+            #   div(
+            #     class = "tab-content",
+            #     h3("Quality Control Visualizations"),
+            #     p("Interactive quality control plots including reference material trend analysis"),
+            #     hr(),
+            #
+            #     fluidRow(
+            #       column(
+            #         width = 12,
+            #         div(
+            #           class = "card-section",
+            #           h4("Plot Options"),
+            #           p(
+            #             class = "info-text",
+            #             "QC plots will appear here after generating the report. ",
+            #             "Trend plots include color-coded quality zones ",
+            #             "(±1 SD, ±2 SD, ±3 SD) for quality assessment."
+            #           )
+            #         )
+            #       )
+            #     )
+            #   )
+            # ),
 
             # ---- TAB 3: HTML Report Preview ----
             tabPanel(
@@ -247,7 +247,20 @@ app_ui <- function() {
               )
             ),
 
-            # ---- TAB 4: Help & Documentation ----
+            # ---- TAB 4: DATA EXPORT ----
+            tabPanel(
+              title = tagList(icon("file-export"), " Data Export"),
+              value = "export_tab",
+              div(
+                class = "tab-content",
+                h3("Export Data"),
+                p("Export protein abundance matrices and annotations in various formats"),
+                hr(),
+                mod_dataExport_ui("dataExport_1")
+              )
+            ),
+
+            # ---- TAB 5: Help & Documentation ----
             tabPanel(
               title = tagList(icon("question-circle"), " Help"),
               value = "help_tab",
@@ -258,58 +271,90 @@ app_ui <- function() {
                 div(
                   class = "card-section",
                   h4("1. Upload Data"),
-                  p("Click 'Browse' in the Data Input section to upload your SomaScan ADAT file."),
+                  p("Click 'Browse' in the Data Input section to upload your assay data file."),
                   p(
                     class = "info-text",
-                    "Supported formats: .adat files up to 500 MB"
+                    "Supported formats: Platform-specific data files up to 500 MB"
                   )
                 ),
 
                 div(
                   class = "card-section",
                   h4("2. Generate Report"),
-                  p("Click 'Generate HTML Report' to create a comprehensive QC report."),
+                  p("Click 'Generate HTML Report' to create a comprehensive quality control report."),
                   p(
                     class = "info-text",
                     "This process analyzes your data and creates visualizations including:",
                     tags$ul(
-                      tags$li("Sample type PCA plots"),
-                      tags$li("Enhanced Levey-Jennings charts with QC zones"),
-                      tags$li("CV distribution analysis"),
-                      tags$li("Quality control tables")
+                      tags$li("Sample type separation analysis (PCA)"),
+                      tags$li("Reference material quality trend charts with QC zones"),
+                      tags$li("Coefficient of variation analysis"),
+                      tags$li("Standardization and reproducibility metrics")
                     )
                   )
                 ),
 
                 div(
                   class = "card-section",
-                  h4("3. Review & Export"),
-                  p("Review the report in the 'Report Preview' tab, then download or save it."),
+                  h4("3. Export Data"),
+                  p("Use the 'Data Export' tab to export:"),
+                  tags$ul(
+                    tags$li(
+                      strong("Protein Abundance Matrix:"),
+                      " Export quantitative protein data in CSV, TSV, Excel, or RData format"
+                    ),
+                    tags$li(
+                      strong("Options:"),
+                      " Choose matrix orientation (samples as rows/columns), include metadata, apply log2 transformation"
+                    ),
+                    tags$li(
+                      strong("Protein Annotation Table:"),
+                      " Export protein identifiers and annotations (Target, UniProt, Gene Symbols, etc.)"
+                    ),
+                    tags$li(
+                      strong("Formats:"),
+                      " CSV, TSV, Excel, or JSON"
+                    )
+                  ),
                   p(
                     class = "info-text",
-                    "The report is a self-contained HTML file that can be shared with colleagues."
+                    "The annotation file links protein identifiers to protein names and reference database IDs."
                   )
                 ),
 
                 div(
                   class = "card-section",
-                  h4("Enhanced Features"),
+                  h4("4. Review & Export Report"),
+                  p("Review the report in the 'Report Preview' tab, then download or save it."),
+                  p(
+                    class = "info-text",
+                    "The report is a self-contained HTML file that can be shared with colleagues and included in supplementary materials."
+                  )
+                ),
+
+                div(
+                  class = "card-section",
+                  h4("Key Features"),
                   tags$ul(
                     tags$li(
-                      strong("Improved Levey-Jennings Plots:"),
-                      " Color-coded QC zones (±1, ±2, ±3 SD) for easy quality assessment"
+                      strong("Reference Material Trend Plots:"),
+                      " Quality zone visualization (±1, ±2, ±3 SD) for QC assessment"
                     ),
                     tags$li(
-                      strong("Better Visualization:"),
-                      " Enhanced plot styling with clear legends and labels"
+                      strong("Enhanced Visualization:"),
+                      " Standardized plot styling with clear legends and annotations"
                     ),
                     tags$li(
-                      strong("QC Zone Indicators:"),
-                      " Different point shapes for each quality control zone"
+                      strong("Quality Control Zones:"),
+                      " Color-coded and shape-coded QC reference zones for easy interpretation"
                     ),
                     tags$li(
-                      strong("Streamlined Code:"),
-                      " Functions consolidated in global.R for better maintainability"
+                      strong("Data Export:"),
+                      " Export matrices and annotations in multiple standard formats"
+                    ),
+                    tags$li(
+                      strong("Comprehensive Metrics:"),
+                      " Standardization factors, reproducibility measures, and sample-level QC assessment"
                     )
                   )
                 ),
@@ -318,7 +363,7 @@ app_ui <- function() {
                   class = "card-section",
                   h4("Support"),
                   p(
-                    "For questions or issues, please contact your SomaScan data analysis team."
+                    "For questions about data quality assessment or interpretation, please refer to your assay platform documentation or contact your analytical team."
                   )
                 )
               )
@@ -331,8 +376,8 @@ app_ui <- function() {
       div(
         style = "margin-top: 30px; padding: 20px; text-align: center; border-top: 1px solid #ddd; color: #6c757d; font-size: 12px;",
         p(
-          "SomaScan Quality Statement Application | ",
-          "Enhanced Version 2.0 | ",
+          "Plasma Proteomics Quality Control Application | ",
+          "Version 2.1 with Data Export | ",
           format(Sys.Date(), "%Y")
         )
       )
@@ -348,7 +393,7 @@ golem_add_external_resources <- function() {
       favicon(),
       bundle_resources(
         path = app_sys('app/www'),
-        app_title = 'SQS Enhanced'
+        app_title = 'Proteomics QC'
       )
     )
   }, error = function(e) {

@@ -1,8 +1,8 @@
 # ==============================================================================
-# GLOBAL.R - SomaScan Quality Statement (SQS) Application
+# GLOBAL.R - Plasma Proteomics Quality Control Application
 # ==============================================================================
 # This file loads all required packages, sets global options, and defines
-# utility functions used throughout the application.
+# utility functions for standardized QC assessment of proteomics assay data.
 # ==============================================================================
 
 # ---- Package Loading ----
@@ -36,7 +36,7 @@ options(
 # ---- Utility Functions ----
 
 #' Calculate Coefficient of Variation (CV) safely
-#' @param x Numeric vector
+#' @param x Numeric vector of abundance values
 #' @return CV as a proportion (not percentage)
 safe_cv <- function(x) {
   m <- base::mean(x, na.rm = TRUE)
@@ -72,14 +72,14 @@ pretty_duration <- function(sec) {
 
 # ---- Statistical Functions ----
 
-#' Enhanced Levey-Jennings Plot for QC Monitoring
+#' Reference Material Quality Trend Plot
 #'
-#' Creates an improved Levey-Jennings plot with better visualization,
-#' interactive features, and quality control zones.
+#' Creates a Levey-Jennings style plot for monitoring coefficient of variation
+#' trends across sequential assay runs, with customizable QC zone visualization.
 #'
-#' @param adat_tbl Data table with SomaScan data
-#' @param adat_header Header information from ADAT file
-#' @param df_cvs_all Historical CV data for reference
+#' @param adat_tbl Data table with assay data
+#' @param adat_header Header information from data file
+#' @param df_cvs_all Historical CV data for establishing reference distribution
 #' @param sample_type Sample type to plot (default: "QC")
 #' @param sd_levels SD levels for control limits (default: c(1, 2, 3))
 #' @param center Centering method: "median" or "mean" (default: "median")
@@ -99,14 +99,14 @@ plot_levey <- function(adat_tbl,
 
   center <- base::match.arg(center)
 
-  # Calculate CV per plate across seq.* columns
+  # Calculate CV per plate across all protein targets
   df_cvs_per_plate <- adat_tbl |>
     dplyr::filter(.data$SampleType == sample_type) |>
     dplyr::select(.data$PlateId, tidyselect::starts_with("seq.")) |>
     dplyr::group_by(.data$PlateId) |>
     dplyr::summarise(dplyr::across(where(is.numeric), safe_cv), .groups = "drop")
 
-  # Calculate plate-level quantiles (%)
+  # Calculate plate-level CV quantiles (%)
   df_cvs_per_plate_quant <- df_cvs_per_plate |>
     tidyr::pivot_longer(-.data$PlateId, names_to = "SeqId", values_to = "CV") |>
     dplyr::group_by(.data$PlateId) |>
@@ -119,7 +119,7 @@ plot_levey <- function(adat_tbl,
 
   exp_date <- base::as.character(adat_header$Header.Meta$HEADER$ExpDate)
 
-  # Build reference data (historical plates excluding current batch)
+  # Build reference data (historical runs excluding current batch)
   ref_plot_dat <- df_cvs_all |>
     dplyr::filter(.data$SampleType == sample_type) |>
     dplyr::anti_join(
@@ -141,10 +141,10 @@ plot_levey <- function(adat_tbl,
         PlateKey = base::paste0(.data$ExpDate, "-", .data$PlateId),
         Data = "Reference"
       )
-    warning("No historical plates remaining after exclusion; using all as reference.")
+    warning("Insufficient reference data; using all historical data for comparison.")
   }
 
-  # Calculate reference statistics
+  # Calculate reference statistics (center and spread)
   ref_center <- if (center == "median") {
     stats::median(ref_plot_dat$`50%`, na.rm = TRUE)
   } else {
@@ -152,7 +152,7 @@ plot_levey <- function(adat_tbl,
   }
   ref_sd <- stats::sd(ref_plot_dat$`50%`, na.rm = TRUE)
 
-  # Build current sample data
+  # Build current study data
   samp_plot_dat <- df_cvs_per_plate_quant |>
     dplyr::mutate(ExpDate = exp_date) |>
     dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
@@ -167,7 +167,7 @@ plot_levey <- function(adat_tbl,
     dplyr::mutate(
       Data = base::factor(.data$Data, levels = c("Reference", "Sample")),
       PlateKey = forcats::fct_inorder(.data$PlateKey),
-      # Add QC zone classification
+      # Classify into QC zones based on SD from reference center
       QC_Zone = dplyr::case_when(
         abs(`50%` - ref_center) <= ref_sd ~ "Zone 1 (±1 SD)",
         abs(`50%` - ref_center) <= 2 * ref_sd ~ "Zone 2 (±2 SD)",
@@ -180,7 +180,7 @@ plot_levey <- function(adat_tbl,
         "Zone 3 (±3 SD)",
         "Out of Control (>±3 SD)"
       )),
-      # Truncate long plate keys for display
+      # Shorten long plate identifiers for display
       PlateKeyShort = dplyr::if_else(
         nchar(as.character(.data$PlateKey)) > 30,
         paste0(substr(as.character(.data$PlateKey), 1, 14), "...",
@@ -201,7 +201,7 @@ plot_levey <- function(adat_tbl,
     )
   )
 
-  # Add shaded QC zones if requested
+  # Add shaded QC zone backgrounds if requested
   if (show_zones) {
     p <- p +
       ggplot2::annotate(
@@ -235,7 +235,7 @@ plot_levey <- function(adat_tbl,
     linetype = "solid"
   )
 
-  # Add control limit lines
+  # Add control limit lines (±1, ±2, ±3 SD)
   line_types <- c("dashed", "dotted", "dotdash")
   for (i in seq_along(sd_levels)) {
     k <- sd_levels[i]
@@ -256,7 +256,7 @@ plot_levey <- function(adat_tbl,
       )
   }
 
-  # Add data points and lines
+  # Add data points and trend lines
   p <- p +
     ggplot2::geom_line(
       ggplot2::aes(color = .data$Data),
@@ -282,11 +282,12 @@ plot_levey <- function(adat_tbl,
   p <- p +
     ggplot2::labs(
       y = y_lab,
-      x = "Date - Plate ID",
-      title = paste0(sample_type, " Quality Control Chart"),
+      x = "Assay Run (Date - Plate ID)",
+      title = paste0(sample_type, " Reference Material Quality Trend"),
       subtitle = paste0(
-        "Center (", center, "): ", round(ref_center, 2), "%; ",
-        "SD: ", round(ref_sd, 2), "%"
+        "Reference ", center, ": ", round(ref_center, 2), "%; ",
+        "SD: ", round(ref_sd, 2), "% | ",
+        "Zones: ±1, ±2, ±3 SD"
       )
     ) +
     ggplot2::theme_minimal(base_size = 11) +
@@ -308,12 +309,13 @@ plot_levey <- function(adat_tbl,
   return(p)
 }
 
-#' Kolmogorov-Smirnov Test for CV Distribution Comparison
+#' Kolmogorov-Smirnov Test for Distribution Comparison
 #'
-#' Performs KS test to compare sample CV distribution against historical reference
+#' Performs KS test to compare current sample CV distribution against
+#' historical reference distribution.
 #'
-#' @param df_cvs_samp Sample CV data
-#' @param df_cvs_all Historical CV data
+#' @param df_cvs_samp Current sample CV data
+#' @param df_cvs_all Historical CV reference data
 #' @param sample_type Sample type to test (default: "Calibrator")
 #' @return Data frame with KS test results per plate
 ks_test <- function(df_cvs_samp,
@@ -325,17 +327,17 @@ ks_test <- function(df_cvs_samp,
   # Build reference population (exclude current plates)
   ref_pop_ks <- df_cvs_all %>%
     dplyr::filter(SampleType == sample_type) %>%
-    dplyr::filter(!PlateId %in% df_cvs_per_plate$`Cal Precision(%)`) %>%
+    dplyr::filter(!PlateId %in% df_cvs_per_plate$Plate) %>%
     dplyr::select(`10%`, `50%`, `90%`) %>%
     as.vector() %>%
     unlist()
 
-  # Check if we have reference data
+  # Check if reference data are available
   if (length(ref_pop_ks) == 0) {
-    warning("No reference population available for KS test")
+    warning("No reference population available for statistical comparison")
     return(tibble::tibble(
       PlateId = character(),
-      Statistics = numeric(),
+      Statistic = numeric(),
       `P-value` = numeric()
     ))
   }
@@ -344,7 +346,7 @@ ks_test <- function(df_cvs_samp,
   df_ks_out <- tibble::tibble()
   for (i in seq_len(nrow(df_cvs_per_plate))) {
     samp_ks <- df_cvs_per_plate[i, ] %>%
-      dplyr::select(-`Cal Precision(%)`) %>%
+      dplyr::select(-Plate) %>%
       as.vector() %>%
       unlist()
 
@@ -359,14 +361,14 @@ ks_test <- function(df_cvs_samp,
         tibble::tibble(PlateId = plate_id, ks_res)
       )
     }, error = function(e) {
-      warning(paste("KS test failed for plate", plate_id, ":", e$message))
+      warning(paste("Statistical test failed for plate", plate_id, ":", e$message))
       df_ks_out <<- dplyr::bind_rows(
         df_ks_out,
         tibble::tibble(
           PlateId = plate_id,
           statistic = NA_real_,
           p.value = NA_real_,
-          method = "KS test failed",
+          method = "Test failed",
           alternative = NA_character_
         )
       )
@@ -376,10 +378,10 @@ ks_test <- function(df_cvs_samp,
   # Clean up column names
   df_ks_out <- df_ks_out %>%
     dplyr::rename(
-      Statistics = statistic,
+      Statistic = statistic,
       `P-value` = p.value
     ) %>%
-    dplyr::select(PlateId, Statistics, `P-value`)
+    dplyr::select(PlateId, Statistic, `P-value`)
 
   return(df_ks_out)
 }
