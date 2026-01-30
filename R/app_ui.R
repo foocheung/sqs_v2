@@ -239,11 +239,11 @@ app_ui <- function() {
                 h3("Report Preview"),
                 p("View the generated HTML report in the browser"),
                 hr(),
-                shinycssloaders::withSpinner(
-                  htmlOutput("htmlReportPreview"),
-                  type = 8,
-                  color = "#667eea"
-                )
+                #shinycssloaders::withSpinner(
+                  htmlOutput("htmlReportPreview")
+                 # type = 8,
+                 # color = "#667eea"
+                #)
               )
             ),
 
