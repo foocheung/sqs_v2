@@ -1,4 +1,9 @@
-# Required packages
+# APP_SERVER.R - UPDATED TO USE LOCAL DATA FILES
+# ==============================================================================
+# KEY CHANGE at line ~177:
+# - Replaced foodata2::load_data4() with load_historical_cv_data()
+# ==============================================================================
+
 library(shiny)
 library(dplyr)
 library(tidyr)
@@ -11,10 +16,7 @@ library(kableExtra)
 library(forcats)
 library(tidyselect)
 
-# Source global functions (includes plot_levey and ks_test)
-
-
-# ---- Helpers (bytes, duration, CV, Levey-Jennings, HTML inject) ----
+# ---- Helpers (bytes, duration, CV, HTML inject) ----
 
 pretty_bytes <- function(bytes) {
   units <- c("B","KB","MB","GB","TB")
@@ -74,11 +76,43 @@ app_server <- function(input, output, session) {
   # Set upload size limit once at app start
   options(shiny.maxRequestSize = 500 * 1024^2)
 
+  # NEW: Historical Data Upload Module - RETURNS REACTIVE
+  # Call this FIRST before other modules
+  historical_data_reactive <- mod_historicalData_server("historicalData_1")
+
+  # Create a reactive function to get CV data (checks custom first, then default)
+  # This MUST be created BEFORE calling mod_table_server
+  get_cv_data <- reactive({
+    # CRITICAL: Depend on historical_data_reactive so we invalidate when it changes
+    module_data <- historical_data_reactive()
+
+    # If module has custom data, use it
+    if (!is.null(module_data)) {
+      cat("\n>>> get_cv_data reactive: Using CUSTOM data from module <<<\n")
+      cat("    Rows:", nrow(module_data), "\n\n")
+      return(module_data)
+    }
+
+    # Also check global environment as backup
+    if (exists("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)) {
+      custom_data <- get("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)
+      if (!is.null(custom_data) && nrow(custom_data) > 0) {
+        cat("\n>>> get_cv_data reactive: Using CUSTOM data from .GlobalEnv <<<\n")
+        cat("    Rows:", nrow(custom_data), "\n\n")
+        return(custom_data)
+      }
+    }
+
+    # Fallback to default
+    cat("\n>>> get_cv_data reactive: Using DEFAULT data <<<\n\n")
+    return(load_historical_cv_data())
+  })
+
   # Modules provided by your app
   metafile <- mod_dataInput_server("dataInput_ui_meta")
-  callModule(mod_table_server, "table_ui_1", metafile)
+  callModule(mod_table_server, "table_ui_1", metafile, get_cv_data)
 
-  # NEW: Data Export Module
+  # Data Export Module
   mod_dataExport_server("dataExport_1", metafile)
 
   # ---- Reactive values to store generated HTML ----
@@ -108,9 +142,30 @@ app_server <- function(input, output, session) {
           stop("Input data is missing. Please ensure data is loaded correctly.")
         }
 
+        # CRITICAL: Get CV data BEFORE calling generate_plots
+        shiny::incProgress(0.25, detail = "Loading reference data...")
+        cat("\n========== LOADING CV DATA ==========\n")
+
+        # Check if custom data exists in global environment
+        if (exists("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)) {
+          custom_data <- get("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)
+          if (!is.null(custom_data) && nrow(custom_data) > 0) {
+            cat("✓ Found CUSTOM data in .GlobalEnv\n")
+            cat("  Dimensions:", nrow(custom_data), "rows\n")
+            cv_data_for_plots <- custom_data
+          } else {
+            cat("✗ No custom data, loading DEFAULT\n")
+            cv_data_for_plots <- load_historical_cv_data()
+          }
+        } else {
+          cat("✗ No custom data in .GlobalEnv, loading DEFAULT\n")
+          cv_data_for_plots <- load_historical_cv_data()
+        }
+        cat("====================================\n\n")
+
         # Generate plots
         shiny::incProgress(0.35, detail = "Generating plots...")
-        plot_files <- generate_plots(metafile, plot_dir)
+        plot_files <- generate_plots(metafile, plot_dir, cv_data_for_plots)
 
         # Generate R Markdown content
         shiny::incProgress(0.6, detail = "Preparing R Markdown...")
@@ -259,8 +314,47 @@ app_server <- function(input, output, session) {
     })
   })
 
+  # ---- DEBUG: CHECK DATA STATUS ----
+  observeEvent(input$debugCheck, {
+    cat("\n========== DEBUG CHECK ==========\n")
+
+    # Check if custom data exists in global environment
+    custom_exists <- exists("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)
+    cat("CUSTOM_HISTORICAL_CV_DATA in .GlobalEnv:", custom_exists, "\n")
+
+    if (custom_exists) {
+      custom_data <- get("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)
+      cat("  Type:", class(custom_data), "\n")
+      cat("  Dimensions:", nrow(custom_data), "rows ×", ncol(custom_data), "columns\n")
+    }
+
+    cat("=================================\n\n")
+  })
+
+  output$debugStatus <- renderUI({
+    # Trigger on button click
+    input$debugCheck
+
+    custom_exists <- exists("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)
+
+    if (custom_exists) {
+      custom_data <- get("CUSTOM_HISTORICAL_CV_DATA", envir = .GlobalEnv)
+      div(
+        style = "margin-top: 10px; padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; border-radius: 5px; font-size: 12px;",
+        strong("✓ Custom data loaded"), br(),
+        paste(nrow(custom_data), "rows ×", ncol(custom_data), "columns")
+      )
+    } else {
+      div(
+        style = "margin-top: 10px; padding: 10px; background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; border-radius: 5px; font-size: 12px;",
+        strong("Using default data"), br(),
+        "No custom data loaded"
+      )
+    }
+  })
+
   # ---- PLOT GENERATION FUNCTION ----
-  generate_plots <- function(metafile, plot_dir) {
+  generate_plots <- function(metafile, plot_dir, cv_data_for_plots) {
     # PCA plot
     pca_file <- file.path(plot_dir, "pca_sample_type.png")
     p_pca <- tryCatch({
@@ -319,11 +413,8 @@ app_server <- function(input, output, session) {
     levey_cal_file <- file.path(plot_dir, "levey_calibrator.png")
     levey_qc_file <- file.path(plot_dir, "levey_somalogic_qc.png")
 
-    df_cvs_all <- tryCatch({
-      foodata2::load_data4()
-    }, error = function(e) {
-      NULL
-    })
+    # *** USE the cv_data passed as parameter ***
+    df_cvs_all <- cv_data_for_plots
 
     if (!is.null(df_cvs_all)) {
 
@@ -334,9 +425,7 @@ app_server <- function(input, output, session) {
           metafile$df(),
           adat_header,
           df_cvs_all,
-          sample_type = "Calibrator",
-          center = "median",
-          show_zones = TRUE
+          sample_type = "Calibrator"
         )
       }, error = function(e) {
         ggplot2::ggplot() +
@@ -357,9 +446,7 @@ app_server <- function(input, output, session) {
           metafile$df(),
           adat_header,
           df_cvs_all,
-          sample_type = "QC",
-          center = "median",
-          show_zones = TRUE
+          sample_type = "QC"
         )
       }, error = function(e) {
         ggplot2::ggplot() +

@@ -9,7 +9,7 @@
 suppressPackageStartupMessages({
   library(shiny)
   library(shinythemes)
- ## library(shinycssloaders)
+ # library(shinycssloaders)
   library(tictoc)
   library(tidyverse)
   library(SomaDataIO)
@@ -87,6 +87,22 @@ pretty_duration <- function(sec) {
 #' @param show_zones Show QC zones with color coding (default: TRUE)
 #' @param point_size Size of points (default: 2.5)
 #' @return ggplot2 object
+
+#' Reference Material Quality Trend Plot
+#'
+#' Creates a Levey-Jennings style plot for monitoring coefficient of variation
+#' trends across sequential assay runs, with customizable QC zone visualization.
+#'
+#' @param adat_tbl Data table with assay data
+#' @param adat_header Header information from data file
+#' @param df_cvs_all Historical CV data for establishing reference distribution
+#' @param sample_type Sample type to plot (default: "QC")
+#' @param sd_levels SD levels for control limits (default: c(1, 2, 3))
+#' @param center Centering method: "median" or "mean" (default: "median")
+#' @param y_lab Y-axis label
+#' @param show_zones Show QC zones with color coding (default: TRUE)
+#' @param point_size Size of points (default: 2.5)
+#' @return ggplot2 object
 plot_levey <- function(adat_tbl,
                        adat_header,
                        df_cvs_all,
@@ -117,7 +133,9 @@ plot_levey <- function(adat_tbl,
       .groups = "drop"
     )
 
-  exp_date <- base::as.character(adat_header$Header.Meta$HEADER$ExpDate)
+  # Get ExpDate and ensure it's Date class
+  exp_date_raw <- adat_header$Header.Meta$HEADER$ExpDate
+  exp_date <- as.Date(exp_date_raw)
 
   # Build reference data (historical runs excluding current batch)
   ref_plot_dat <- df_cvs_all |>
@@ -128,6 +146,7 @@ plot_levey <- function(adat_tbl,
     ) |>
     dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
     dplyr::mutate(
+      ExpDate = as.Date(.data$ExpDate),  # EXPLICIT: ensure Date class
       PlateKey = base::paste0(.data$ExpDate, "-", .data$PlateId),
       Data = "Reference"
     )
@@ -138,6 +157,7 @@ plot_levey <- function(adat_tbl,
       dplyr::filter(.data$SampleType == sample_type) |>
       dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
       dplyr::mutate(
+        ExpDate = as.Date(.data$ExpDate),  # EXPLICIT: ensure Date class
         PlateKey = base::paste0(.data$ExpDate, "-", .data$PlateId),
         Data = "Reference"
       )
@@ -154,14 +174,16 @@ plot_levey <- function(adat_tbl,
 
   # Build current study data
   samp_plot_dat <- df_cvs_per_plate_quant |>
-    dplyr::mutate(ExpDate = exp_date) |>
+    dplyr::mutate(ExpDate = exp_date) |>  # Use the Date-converted value
     dplyr::select(.data$ExpDate, .data$PlateId, `50%`) |>
     dplyr::mutate(
+      ExpDate = as.Date(.data$ExpDate),  # EXPLICIT: ensure Date class
       PlateKey = base::paste0(.data$ExpDate, "-", .data$PlateId),
       Data = "Sample"
     )
 
   # Combine and prepare plot data
+  # NOTE: Both ExpDate columns are now explicitly Date class, so bind_rows will work
   plot_dat <- dplyr::bind_rows(ref_plot_dat, samp_plot_dat) |>
     dplyr::arrange(.data$ExpDate, .data$PlateId) |>
     dplyr::mutate(
@@ -308,6 +330,7 @@ plot_levey <- function(adat_tbl,
 
   return(p)
 }
+
 
 #' Kolmogorov-Smirnov Test for Distribution Comparison
 #'

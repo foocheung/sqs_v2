@@ -14,7 +14,6 @@ run_app <- function(
   uiPattern = "/",
   ...
 ) {
-  source(system.file("04-01-sqs-extended-functions.R",package = "sqs"))
   with_golem_options(
     app = shinyApp(
       ui = app_ui,

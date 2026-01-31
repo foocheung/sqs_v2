@@ -1,6 +1,6 @@
-#' The Application User-Interface - IMPROVED VERSION WITH DATA EXPORT
+#' The Application User-Interface - WITH HISTORICAL DATA UPLOAD
 #'
-#' Enhanced UI with data export functionality and neutral terminology
+#' Enhanced UI with data export and historical data upload functionality
 #'
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
@@ -124,6 +124,28 @@ app_ui <- function() {
             )
           ),
 
+          # NEW: Historical Data Upload Section
+          div(
+            class = "card-section",
+            mod_historicalData_ui("historicalData_1")
+          ),
+
+          # Debug: Check data status
+          div(
+            class = "card-section",
+            h4(icon("bug"), " Debug Info"),
+            p(
+              style = "font-size: 13px; color: #6c757d; margin-bottom: 10px;",
+              "Check which historical data is currently loaded"
+            ),
+            actionButton(
+              "debugCheck",
+              "Check Data Status",
+              class = "btn btn-secondary btn-action"
+            ),
+            uiOutput("debugStatus")
+          ),
+
           # Report Generation Section
           div(
             class = "card-section",
@@ -174,9 +196,9 @@ app_ui <- function() {
             h4(icon("info"), " Information"),
             p(
               style = "font-size: 12px; color: #6c757d; margin: 0;",
-              strong("Version:"), " 2.1 (With Data Export)", br(),
+              strong("Version:"), " 2.2 (With Historical Data Upload)", br(),
               strong("Max Upload:"), " 500 MB", br(),
-              strong("Features:"), " QC Assessment, Reports, Data Export"
+              strong("Features:"), " QC Assessment, Reports, Data Export, Custom Reference Data"
             )
           )
         ),
@@ -202,52 +224,20 @@ app_ui <- function() {
               )
             ),
 
-            # # ---- TAB 2: Quality Control Plots ----
-            # tabPanel(
-            #   title = tagList(icon("chart-area"), " QC Plots"),
-            #   value = "qc_tab",
-            #   div(
-            #     class = "tab-content",
-            #     h3("Quality Control Visualizations"),
-            #     p("Interactive quality control plots including reference material trend analysis"),
-            #     hr(),
-            #
-            #     fluidRow(
-            #       column(
-            #         width = 12,
-            #         div(
-            #           class = "card-section",
-            #           h4("Plot Options"),
-            #           p(
-            #             class = "info-text",
-            #             "QC plots will appear here after generating the report. ",
-            #             "Trend plots include color-coded quality zones ",
-            #             "(±1 SD, ±2 SD, ±3 SD) for quality assessment."
-            #           )
-            #         )
-            #       )
-            #     )
-            #   )
-            # ),
-
-            # ---- TAB 3: HTML Report Preview ----
+            # ---- TAB 2: HTML Report Preview ----
             tabPanel(
-              title = tagList(icon("eye"), " Report Preview"),
+              title = tagList(icon("file-code"), " Report Preview"),
               value = "preview_tab",
               div(
                 class = "tab-content",
                 h3("Report Preview"),
                 p("View the generated HTML report in the browser"),
                 hr(),
-                #shinycssloaders::withSpinner(
-                  htmlOutput("htmlReportPreview")
-                 # type = 8,
-                 # color = "#667eea"
-                #)
+                htmlOutput("htmlReportPreview")
               )
             ),
 
-            # ---- TAB 4: DATA EXPORT ----
+            # ---- TAB 3: DATA EXPORT ----
             tabPanel(
               title = tagList(icon("file-export"), " Data Export"),
               value = "export_tab",
@@ -260,7 +250,7 @@ app_ui <- function() {
               )
             ),
 
-            # ---- TAB 5: Help & Documentation ----
+            # ---- TAB 4: Help & Documentation ----
             tabPanel(
               title = tagList(icon("question-circle"), " Help"),
               value = "help_tab",
@@ -270,17 +260,32 @@ app_ui <- function() {
 
                 div(
                   class = "card-section",
-                  h4("1. Upload Data"),
+                  h4("1. Upload Assay Data"),
                   p("Click 'Browse' in the Data Input section to upload your assay data file."),
                   p(
                     class = "info-text",
-                    "Supported formats: Platform-specific data files up to 500 MB"
+                    "Supported formats: SomaLogic ADAT files up to 500 MB"
                   )
                 ),
 
                 div(
                   class = "card-section",
-                  h4("2. Generate Report"),
+                  h4("2. Upload Historical Reference Data (Optional)"),
+                  p("Upload your own historical CV reference data for custom Levey-Jennings plots."),
+                  p(
+                    class = "info-text",
+                    "If not provided, the app uses default built-in reference data. ",
+                    "Excel file must contain columns: ExpDate, SampleType, PlateId, 10%, 50%, 90%"
+                  ),
+                  p(
+                    class = "info-text",
+                    strong("To remove custom data:"), " Click the 'Use Default Data' button in the Historical Reference Data section to reset to built-in reference data."
+                  )
+                ),
+
+                div(
+                  class = "card-section",
+                  h4("3. Generate Report"),
                   p("Click 'Generate HTML Report' to create a comprehensive quality control report."),
                   p(
                     class = "info-text",
@@ -296,7 +301,7 @@ app_ui <- function() {
 
                 div(
                   class = "card-section",
-                  h4("3. Export Data"),
+                  h4("4. Export Data"),
                   p("Use the 'Data Export' tab to export:"),
                   tags$ul(
                     tags$li(
@@ -324,7 +329,7 @@ app_ui <- function() {
 
                 div(
                   class = "card-section",
-                  h4("4. Review & Export Report"),
+                  h4("5. Review & Export Report"),
                   p("Review the report in the 'Report Preview' tab, then download or save it."),
                   p(
                     class = "info-text",
@@ -336,6 +341,10 @@ app_ui <- function() {
                   class = "card-section",
                   h4("Key Features"),
                   tags$ul(
+                    tags$li(
+                      strong("Custom Reference Data:"),
+                      " Upload your own historical CV data for personalized quality control analysis"
+                    ),
                     tags$li(
                       strong("Reference Material Trend Plots:"),
                       " Quality zone visualization (±1, ±2, ±3 SD) for QC assessment"
@@ -361,6 +370,50 @@ app_ui <- function() {
 
                 div(
                   class = "card-section",
+                  h4("Custom Historical Data Format"),
+                  p("To upload your own historical reference data, prepare an Excel file with these columns:"),
+                  tags$table(
+                    style = "width: 100%; border-collapse: collapse; font-size: 12px;",
+                    tags$tr(
+                      tags$th(style = "border: 1px solid #ddd; padding: 8px; text-align: left;", "Column"),
+                      tags$th(style = "border: 1px solid #ddd; padding: 8px; text-align: left;", "Type"),
+                      tags$th(style = "border: 1px solid #ddd; padding: 8px; text-align: left;", "Description")
+                    ),
+                    tags$tr(
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", code("ExpDate")),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Date"),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Experiment date")
+                    ),
+                    tags$tr(
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", code("SampleType")),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Text"),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "QC, Calibrator, etc.")
+                    ),
+                    tags$tr(
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", code("PlateId")),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Text"),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Plate identifier")
+                    ),
+                    tags$tr(
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", code("10%")),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Number"),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "10th percentile CV")
+                    ),
+                    tags$tr(
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", code("50%")),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Number"),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Median (50th percentile) CV")
+                    ),
+                    tags$tr(
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", code("90%")),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "Number"),
+                      tags$td(style = "border: 1px solid #ddd; padding: 8px;", "90th percentile CV")
+                    )
+                  )
+                ),
+
+                div(
+                  class = "card-section",
                   h4("Support"),
                   p(
                     "For questions about data quality assessment or interpretation, please refer to your assay platform documentation or contact your analytical team."
@@ -377,7 +430,7 @@ app_ui <- function() {
         style = "margin-top: 30px; padding: 20px; text-align: center; border-top: 1px solid #ddd; color: #6c757d; font-size: 12px;",
         p(
           "Plasma Proteomics Quality Control Application | ",
-          "Version 2.1 with Data Export | ",
+          "Version 2.2 with Historical Data Upload | ",
           format(Sys.Date(), "%Y")
         )
       )
