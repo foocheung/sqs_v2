@@ -9,137 +9,60 @@ tags:
   - bioinformatics
   - data visualization
 authors:
-  - name: "Foo Cheung"
-  - affiliation: 1
+  - name: Foo Cheung
+    affiliation: 1
 affiliations:
-  - name: "National Institutes of Health, Center for Human Immunology"
-index: 1
-date: "2026-03-06"
-bibliography: "paper.bib"
+  - name: National Institutes of Health, Center for Human Immunology
+    index: 1
+date: 2026-03-06
+bibliography: paper.bib
 ---
 
 # Summary
 
-The `sqs` package is an open-source R package built using the Golem framework [@fay2021golem] to provide a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables researchers to interactively upload, process, and visualize proteomics data, generating comprehensive QC reports in HTML format with professional visualizations. Key features include:
+`sqs` is an open-source R package that provides an interactive web application for quality control (QC) of SomaLogic SomaScan proteomics data. SomaScan assays measure thousands of proteins simultaneously, producing large and complex datasets that require careful quality checks before scientific interpretation. However, QC workflows are often performed manually using spreadsheets or custom scripts, which can be time-consuming, inconsistent, and difficult to reproduce.
 
-* **Data Input and Processing**: Supports upload of SomaLogic `.adat` files with user-provided historical reference data for comparison, with parsing via `SomaDataIO` [@somalogic2023].
-* **Enhanced QC Metrics and Visualizations**: Calculates per-plate coefficient of variation (CV) statistics, performs Principal Component Analysis (PCA) for sample clustering, and generates advanced Levey-Jennings plots with color-coded quality control zones following statistical process control (SPC) conventions.
-* **Statistical Process Control**: Implements industry-standard QC zones (±1 SD, ±2 SD, ±3 SD) with visual indicators for optimal, warning, action, and out-of-control ranges, supporting Westgard rules for quality assessment.
-* **Data Export Capabilities**: Provides flexible export of protein abundance matrices and annotation tables in multiple formats (CSV, TSV, Excel, RDS, JSON) with configurable options for matrix orientation, metadata inclusion, and transformations.
-* **Automated Reporting**: Produces structured, self-contained HTML reports summarizing experimental design, normalization metrics, calibration checks, and enhanced visualizations suitable for publication and regulatory submission.
-* **Modern User Interface**: A professional, card-based Shiny interface with intuitive navigation, built-in help documentation, and real-time status indicators for enhanced user experience.
+`sqs` addresses this need by offering a browser-based interface that allows users to upload SomaScan data files, visualize quality metrics, and generate publication-ready reports without requiring advanced programming skills. The software integrates data parsing, statistical visualization, and automated reporting into a single workflow. Key features include interactive plots for detecting outliers, plate-level variability summaries, standardized statistical process control charts, and export of cleaned data matrices for downstream analysis.
+
+By lowering the technical barrier to performing robust QC, `sqs` enables researchers, clinicians, and bioinformaticians to quickly assess data quality, document results, and share reproducible QC outputs with collaborators.
 
 # Statement of Need
 
-SomaScan assays generate complex proteomics data requiring rigorous quality control to ensure data reliability and reproducibility. While `SomaDataIO` [@somalogic2023] facilitates data parsing, it lacks interactive tools for comprehensive QC visualization, data export, and reporting. The `sqs` package fills this gap by providing:
+High-throughput proteomics technologies such as SomaScan generate large, multi-plate datasets that are sensitive to batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. While the `SomaDataIO` package facilitates data import and parsing, it does not provide interactive visualization, standardized QC workflows, or automated reporting tools.
 
-1. **Automated QC Workflows**: Streamlines quality control analysis, reducing analysis time by days and weeks for datasets with 10+ plates compared to manual methods in spreadsheet software.
+Researchers often rely on ad-hoc scripts or spreadsheet workflows to compute coefficients of variation, examine plate distributions, and flag outliers. These approaches are labor-intensive, error-prone, and difficult to reproduce across studies. Additionally, many research teams lack access to custom bioinformatics pipelines, creating a need for user-friendly tools that support standardized QC practices.
 
-2. **Enhanced Statistical Process Control**: Implements professional Levey-Jennings plots with color-coded QC zones that enable rapid identification of systematic errors, trends, and out-of-control events following established clinical laboratory standards [@westgard2008basic].
+`sqs` was developed to address these challenges by providing reproducible QC workflows, interactive visualizations, automated reporting, and accessible interfaces for non-programmers. The software has already been used in multi-omics studies for several years, demonstrating its relevance in translational proteomics workflows.
 
-3. **Flexible Reference Data**: Allows researchers to upload their own historical control data, enabling laboratory-specific quality monitoring and trending over time without dependence on external databases.
+# State of the Field
 
-4. **Streamlined Data Export**: Provides one-click export of protein abundance matrices and annotation tables in analysis-ready formats, eliminating manual data wrangling steps and reducing preprocessing time for downstream statistical analysis.
+Several tools exist for working with SomaScan data, but they focus primarily on data import or downstream statistical analysis rather than quality control. The `SomaDataIO` package provides robust functions for reading and analysis of `.adat` files, commercial or internal laboratory QC pipelines may exist, but they are often proprietary or not easily shared across institutions. Existing Shiny dashboards typically focus on exploratory data analysis rather than standardized QC procedures.
 
-5. **Publication-Ready Outputs**: Generates high-quality visualizations and comprehensive reports suitable for peer-reviewed publications, regulatory submissions, and laboratory quality documentation.
+`sqs` fills this gap by combining SomaScan-specific QC metrics, standardized statistical process control visualizations, and automated reporting within a reproducible, open-source framework. The decision to build a dedicated application rather than extending existing tools was driven by the need for a specific QC logic, an accessible interface for users without programming expertise, and reproducible reporting suitable for regulatory documentation.
 
-The `sqs` application has been used in proteomics workflows to support quality control and visualization of SomaScan datasets in translational and clinical studies. For example, the tool was applied during data processing and QC review for multi-omics analyses investigating dietary interventions and immune responses [@link2024vegan] and for deep phenotyping studies of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome [@walitt2024cfs]. In these projects, `sqs` enabled rapid QC assessment across multiple assay plates, improved reproducibility of analysis pipelines, and facilitated generation of publication-ready figures and reports for collaborative review.
+# Software Design
 
-The package is tailored for proteomics researchers, clinical laboratory scientists, and bioinformaticians working with SomaLogic SomaScan data, particularly those requiring standardized QC workflows across multiple studies or longitudinal monitoring of assay performance.
+`sqs` is implemented as a modular Shiny application using the Golem framework, which promotes reproducibility, testing, and maintainability for production-ready Shiny applications. The architecture separates data input, analysis, visualization, and export components into reusable modules. This modular design allows future extension of QC metrics and export formats without restructuring the application.
 
-# Functionality
+Several design trade-offs were considered. The application prioritizes usability over maximal computational performance, enabling researchers to run QC analyses locally through a graphical interface. Automated reporting was implemented using R Markdown to ensure that QC outputs are fully reproducible and shareable. Visualization components emphasize interpretability for non-specialists, with color-coded control zones aligned with standard laboratory QC practices. Data export options were designed to support downstream workflows in R, Excel, and machine-learning environments.
 
-## Core Components
+# Research Impact Statement
 
-### Data Input and Management (`mod_dataInput.R`, `global.R`)
+`sqs` has been integrated into ongoing proteomics workflows, supporting QC analysis for multi-omics and clinical studies. The tool has been used to evaluate SomaScan numerous datasets for example recently in dietary intervention studies examining immune responses and in deep phenotyping investigations of post-infectious chronic fatigue syndrome. In these projects, `sqs` reduced manual QC effort, improved reproducibility of analysis steps, and facilitated generation of publication-ready figures for collaborative review.
 
-* Upload SomaLogic `.adat` files (up to 500 MB) directly through the web interface
-* Support for user-provided historical reference data in multiple formats (RDS, CSV, Feather)
-* Flexible data handling with robust error checking and validation
-* Example datasets available for testing and demonstration
-
-### QC Analysis Functions (`global.R`)
-
-The package consolidates all utility functions in a single `global.R` file for improved maintainability:
-
-**`safe_cv(x)`**: Robust calculation of coefficient of variation with handling of edge cases (zero means, NA values)
-
-**`plot_levey()`**: Enhanced Levey-Jennings plot generation with the following advanced features:
-
-* Color-coded quality control zones (Zone 1: ±1 SD, Zone 2: ±2 SD, Zone 3: ±3 SD)
-* Shaded background regions indicating optimal (light blue), warning (yellow), action (light green), and out-of-control ranges
-* Different point shapes for visual QC zone identification (circle, triangle, square, X)
-* Multiple line types distinguishing SD levels (dashed, dotted, dot-dash)
-* Professional titles and subtitles displaying sample type, center statistic, and standard deviation
-* Configurable options: SD levels (default: 1, 2, 3), centering method (median or mean), zone visibility, point size
-* Smart truncation of long plate identifiers for improved readability
-
-**`ks_test()`**: Kolmogorov-Smirnov test for comparing sample CV distributions against historical reference populations with comprehensive error handling
-
-### Data Export Module (`mod_dataExport.R`)
-
-The package includes a dedicated module for exporting processed proteomics data:
-
-**Protein Abundance Matrix Export**:
-
-* Multiple file formats: CSV, TSV, Excel (.xlsx), RData (.rds)
-* Configurable matrix orientation (samples as rows or columns)
-* Optional inclusion of sample metadata (PlateId, SampleId, SampleType, Barcode)
-* Optional log2 transformation for downstream analysis
-* Progress indicators for large dataset exports
-
-**Protein Annotation Table Export**:
-
-* Multiple file formats: CSV, TSV, Excel, JSON
-* Customizable annotation fields: SeqId, Target, TargetFullName, UniProt, EntrezGeneID, EntrezGeneSymbol, Organism, Type, Dilution, ColCheck
-* Flexible selection of annotation columns based on analysis requirements
-* Support for integration with pathway analysis and gene ontology tools
-
-### Visualization and Reporting (`app_server.R`)
-
-* Principal Component Analysis (PCA) plots with variance explained percentages
-* Per-plate CV distributions with quantile summaries (10%, 50%, 90%)
-* Levey-Jennings charts for both calibrators and QC samples
-* Sample normalization metrics and ANML fraction analysis
-* Automated HTML report generation with embedded high-resolution plots (300 DPI)
-* Self-contained reports suitable for archiving and sharing
-
-### User Interface (`app_ui.R`)
-
-* Modern gradient header with professional styling
-* Card-based layout for improved visual organization
-* Tabbed panels for data exploration, QC plots, data export, report preview, and help documentation
-* Real-time status indicators and progress feedback
-* Responsive design optimized for different screen sizes
-* Built-in quick start guide and feature explanations
-
-# Performance
-
-Benchmarked at **43.2 seconds** for processing 15 plates on a Mac M1 (64 GB RAM, macOS 14.7.6), representing a significant improvement over manual QC workflows. The application efficiently handles datasets up to 500 MB with optimized data processing using `tidyverse` [@wickham2019tidyverse] and `arrow` [@richardson2022arrow] packages.
-
-# Implementation Details
-
-## Architecture
-
-The package follows a modular Shiny architecture using the Golem framework:
-
-* **`global.R`**: Consolidated utility functions, package loading, and global options
-* **`app_ui.R`**: Modern user interface with professional styling
-* **`app_server.R`**: Server logic for data processing and report generation
-* **`mod_dataInput.R`**: Modular data input component
-* **`mod_dataExport.R`**: Modular data export component
-* **`mod_table.R`**: Modular table display component
+Benchmarking indicates that the application can process multi-plate datasets in under one minute on standard hardware, enabling rapid QC assessment during data review meetings. The open-source repository includes reproducible example datasets, documentation, and a live demonstration application, supporting adoption by external research groups. Because SomaScan is widely used in clinical proteomics and biomarker discovery, `sqs` provides a scalable tool that can be applied across multiple disease areas and study designs.
 
 # AI Usage Disclosure
 
-During the preparation of this submission, generative AI was utilized to assist in structuring the initial draft and formatting the Markdown text in accordance with JOSS guidelines. The author comprehensively reviewed, edited, and validated all AI-assisted outputs. The author maintains full responsibility for the core software architecture, the problem framing, all technical claims, and the accuracy of this manuscript.
+Generative AI tools were used to assist in editing and structuring the manuscript text to meet journal formatting and readability requirements. All technical content, software design decisions, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
 
 # Availability
 
-Available under the MIT License at [https://github.com/foocheung/sqs_v2](https://github.com/foocheung/sqs_v2).
+The software is available under the MIT License at:
+https://github.com/foocheung/sqs_v2
 
 # Acknowledgements
 
-The author thanks the open-source R community, particularly the developers of `shiny`, `tidyverse`, and `SomaDataIO` packages. The enhanced Levey-Jennings visualization follows statistical process control principles established by Westgard and colleagues in clinical laboratory quality control.
+This work was supported by the Intramural Research Program of the National Institutes of Health.
 
 # References
