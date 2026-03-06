@@ -31,6 +31,14 @@ https://github.com/user-attachments/assets/27dc365c-8617-4366-af0c-152b20d281ab
 - **Comprehensive QC Tables**: Formatted with `kableExtra` for professional appearance
 - **Interactive Visualizations**: Powered by `ggplot2` and `plotly` for enhanced data exploration
 
+## Example Report
+
+Click the image below to view a full example HTML report:
+
+[![Example QC Report](https://github.com/foocheung/sqs_v2/raw/main/screencapture-file-Users-cheungf-Downloads-Proteomics-QC-Report-2026-03-06-html-2026-03-06-10_22_37.png)](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Report_2026-03-06.html)
+
+*Click the screenshot above to view the [complete interactive HTML report](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Report_2026-03-06.html)*
+
 ### Quality Control Monitoring
 - **Statistical Process Control**: Industry-standard QC zones following SPC conventions
 - **Trend Detection**: Visual identification of systematic shifts or drifts
