@@ -28,11 +28,11 @@ By lowering the technical barrier to performing robust QC, `sqs` enables researc
 
 # Statement of Need
 
-High-throughput proteomics technologies such as SomaScan generate large, multi-plate datasets that are sensitive to batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. While the `SomaDataIO` package facilitates data import and parsing, it does not provide interactive visualization, standardized QC workflows, or automated reporting tools.
+High-throughput proteomics technologies such as SomaScan generate large, multi-plate datasets that are sensitive to batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. While the `SomaDataIO` package facilitates data import and parsing, it does not provide interactive web based visualization with standardized QC workflows, or automated reporting tools.
 
 Researchers often rely on ad-hoc scripts or spreadsheet workflows to compute coefficients of variation, examine plate distributions, and flag outliers. These approaches are labor-intensive, error-prone, and difficult to reproduce across studies. Additionally, many research teams lack access to custom bioinformatics pipelines, creating a need for user-friendly tools that support standardized QC practices.
 
-`sqs` was developed to address these challenges by providing reproducible QC workflows, interactive visualizations, automated reporting, and accessible interfaces for non-programmers. The software has already been used in multi-omics studies for several years, demonstrating its relevance in translational proteomics workflows.
+`sqs` was developed to address these challenges by providing web based reproducible QC workflows, interactive visualizations, automated reporting, and accessible interfaces for non-programmers. The software has already been used in multi-omics studies for several years, demonstrating its relevance in translational proteomics workflows.
 
 # State of the Field
 
