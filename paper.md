@@ -130,6 +130,10 @@ The package follows a modular Shiny architecture using the Golem framework:
 * **`mod_dataExport.R`**: Modular data export component
 * **`mod_table.R`**: Modular table display component
 
+# AI Usage Disclosure
+
+During the preparation of this submission, generative AI was utilized to assist in structuring the initial draft and formatting the Markdown text in accordance with JOSS guidelines. The author comprehensively reviewed, edited, and validated all AI-assisted outputs. The author maintains full responsibility for the core software architecture, the problem framing, all technical claims, and the accuracy of this manuscript.
+
 # Availability
 
 Available under the MIT License at [https://github.com/foocheung/sqs_v2](https://github.com/foocheung/sqs_v2).
