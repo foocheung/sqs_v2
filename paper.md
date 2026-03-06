@@ -41,13 +41,13 @@ Researchers often rely on ad-hoc scripts or spreadsheet workflows to compute coe
 3. **Automated reporting** that documents QC decisions for regulatory or publication purposes.
 4. **Accessible interfaces** that enable non-programmers to perform advanced QC analyses.
 
-The software has already been used in NIH multi-omics studies involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its relevance in translational proteomics workflows.
+The software has already been used in NIH multi-omics studies for several years and more recently for published studies involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its relevance in translational proteomics workflows.
 
 ---
 
 # State of the Field
 
-Several tools exist for working with SomaScan data, but they focus primarily on data import or downstream statistical analysis rather than quality control. `SomaDataIO` [@somalogic2023] provides robust functions for reading `.adat` files and anlaysis but requires programming skils and does not offer web based visualization or automatic push button reporting capabilities. General-purpose visualization packages such as `ggplot2` or `tidyverse` tools [@wickham2019tidyverse] can be used to build custom QC pipelines, but these require programming expertise and substantial setup time.
+Several tools exist for working with SomaScan data, but they focus primarily on data import or downstream statistical analysis rather than quality control. `SomaDataIO` [@somalogic2023] provides robust functions for reading `.adat` files and analysis but requires programming skils and does not offer web based visualization or automatic reporting capabilities. General-purpose visualization packages such as `ggplot2` or `tidyverse` tools [@wickham2019tidyverse] can be used to build custom QC pipelines, but these require programming expertise and substantial setup time.
 
 Commercial or internal laboratory QC pipelines may exist, but they are often proprietary or not easily shared across institutions. Existing Shiny dashboards typically focus on exploratory data analysis rather than standardized QC procedures.
 
