@@ -33,7 +33,7 @@ The `sqs` package is an open-source R package built using the Golem framework [@
 
 SomaScan assays generate complex proteomics data requiring rigorous quality control to ensure data reliability and reproducibility. While `SomaDataIO` [@somalogic2023] facilitates data parsing, it lacks interactive tools for comprehensive QC visualization, data export, and reporting. The `sqs` package fills this gap by providing:
 
-1. **Automated QC Workflows**: Streamlines quality control analysis, reducing analysis time by up to 50% for datasets with 10+ plates compared to manual methods in spreadsheet software.
+1. **Automated QC Workflows**: Streamlines quality control analysis, reducing analysis time by days and weeks for datasets with 10+ plates compared to manual methods in spreadsheet software.
 
 2. **Enhanced Statistical Process Control**: Implements professional Levey-Jennings plots with color-coded QC zones that enable rapid identification of systematic errors, trends, and out-of-control events following established clinical laboratory standards [@westgard2008basic].
 
@@ -43,7 +43,7 @@ SomaScan assays generate complex proteomics data requiring rigorous quality cont
 
 5. **Publication-Ready Outputs**: Generates high-quality visualizations and comprehensive reports suitable for peer-reviewed publications, regulatory submissions, and laboratory quality documentation.
 
-The `sqs` application has been used in NIH proteomics workflows to support quality control and visualization of SomaScan datasets in translational and clinical studies. For example, the tool was applied during data processing and QC review for multi-omics analyses investigating dietary interventions and immune responses [@link2024vegan] and for deep phenotyping studies of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome [@walitt2024cfs]. In these projects, `sqs` enabled rapid QC assessment across multiple assay plates, improved reproducibility of analysis pipelines, and facilitated generation of publication-ready figures and reports for collaborative review.
+The `sqs` application has been used in proteomics workflows to support quality control and visualization of SomaScan datasets in translational and clinical studies. For example, the tool was applied during data processing and QC review for multi-omics analyses investigating dietary interventions and immune responses [@link2024vegan] and for deep phenotyping studies of post-infectious myalgic encephalomyelitis/chronic fatigue syndrome [@walitt2024cfs]. In these projects, `sqs` enabled rapid QC assessment across multiple assay plates, improved reproducibility of analysis pipelines, and facilitated generation of publication-ready figures and reports for collaborative review.
 
 The package is tailored for proteomics researchers, clinical laboratory scientists, and bioinformaticians working with SomaLogic SomaScan data, particularly those requiring standardized QC workflows across multiple studies or longitudinal monitoring of assay performance.
 
@@ -115,7 +115,7 @@ The package includes a dedicated module for exporting processed proteomics data:
 
 # Performance
 
-Benchmarked at **113.2 seconds** for processing 15 plates on a Mac M1 (64 GB RAM, macOS 14.7.6), representing a significant improvement over manual QC workflows. The application efficiently handles datasets up to 500 MB with optimized data processing using `tidyverse` [@wickham2019tidyverse] and `arrow` [@richardson2022arrow] packages.
+Benchmarked at **43.2 seconds** for processing 15 plates on a Mac M1 (64 GB RAM, macOS 14.7.6), representing a significant improvement over manual QC workflows. The application efficiently handles datasets up to 500 MB with optimized data processing using `tidyverse` [@wickham2019tidyverse] and `arrow` [@richardson2022arrow] packages.
 
 # Implementation Details
 
