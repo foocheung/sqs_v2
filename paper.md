@@ -1,24 +1,16 @@
 ---
 
-title: 'sqs: A Shiny Application for Quality Control Analysis of SomaScan Proteomics Data'
-tags:
+title: "sqs: A Shiny Application for Quality Control Analysis of SomaScan Proteomics Data"
+tags: "R, Shiny, proteomics, quality control, SomaScan, bioinformatics, data visualization"
+authors:
 
-* R
-* Shiny
-* proteomics
-* quality control
-* SomaScan
-* bioinformatics
-* data visualization
-  authors:
-* name: Foo Cheung
-  orcid: [ORCID]
+* name: "Foo Cheung"
   affiliation: 1
   affiliations:
-* name: National Institutes of Health, Center for Human Immunology
+* name: "National Institutes of Health, Center for Human Immunology"
   index: 1
-  date: 6 March 2026
-  bibliography: paper.bib
+  date: "2026-03-06"
+  bibliography: "paper.bib"
 
 ---
 
