@@ -1,9 +1,16 @@
 ---
 
 title: "sqs: A Shiny Application for Quality Control Analysis of SomaScan Proteomics Data"
-tags: "R, Shiny, proteomics, quality control, SomaScan, bioinformatics, data visualization"
-authors:
+tags:
 
+* R
+* Shiny
+* proteomics
+* quality control
+* SomaScan
+* bioinformatics
+* data visualization
+  authors:
 * name: "Foo Cheung"
   affiliation: 1
   affiliations:
