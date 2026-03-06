@@ -168,7 +168,7 @@ Version 2.0 represents a significant refactoring:
 Available under the MIT License at [https://github.com/foocheung/sqs_v2](https://github.com/foocheung/sqs_v2). The repository includes:
 
 - **README.md**: Comprehensive overview with installation instructions, usage examples, and feature descriptions
-- **Video Tutorial**: Step-by-step video demonstration (~5 minutes) showing data upload, report generation, data export, and QC interpretation, available in the GitHub repository
+- **Video Tutorial**: Step-by-step video demonstration (~2 minutes) showing data upload, report generation, data export, and QC interpretation, available in the GitHub repository
 - **Documentation**: Quick start guide, improvements guide, and plot comparison documentation
 - **Demo Application**: Live demonstration at [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
 - **Example Reports**: Sample HTML reports demonstrating output quality
@@ -188,20 +188,6 @@ Core dependencies include:
 - `DT`, `kableExtra`: Table formatting
 - `forcats`, `broom`: Statistical utilities
 - `writexl`, `jsonlite`: Data export formats (optional)
-
-# Future Directions
-
-Planned enhancements for future versions include:
-
-- Interactive plotly-based Levey-Jennings plots with hover tooltips
-- Automated Westgard rule evaluation with flagging and alerts
-- PDF report generation for offline distribution
-- Database backend for long-term historical data storage
-- Batch processing interface for multiple file analysis
-- Email notifications for out-of-control events
-- Multi-site comparison tools for collaborative studies
-- Direct integration with pathway analysis tools (e.g., Reactome, KEGG)
-- Export templates for common statistical software (SPSS, GraphPad Prism)
 
 # Acknowledgements
 
