@@ -2,6 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+
+
+
+https://github.com/user-attachments/assets/27dc365c-8617-4366-af0c-152b20d281ab
+
+
+
+
+
 `sqs` is an R package built with the [Golem](https://thinkr-open.github.io/golem/) framework, providing a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables proteomics researchers to upload `.adat` files, compute QC metrics (e.g., per-plate CVs, PCA, Levey-Jennings plots), and generate automated HTML/PDF reports. The package integrates with `SomaDataIO` for data handling.
 
 ## Features
