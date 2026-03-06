@@ -136,7 +136,7 @@ The package follows a modular Shiny architecture using the Golem framework:
 
 # Availability
 
-Available under the MIT License at [https://github.com/foocheung/sqs_v2](https://github.com/foocheung/sqs_v2). A live demonstration is available at [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/).
+Available under the MIT License at [https://github.com/foocheung/sqs_v2](https://github.com/foocheung/sqs_v2).
 
 # Acknowledgements
 
