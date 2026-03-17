@@ -209,8 +209,6 @@ Try the enhanced app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https:/
 ### Quick References
 - **Quick Start Guide**: See `QUICK_START.md` for rapid implementation
 - **Function Reference**: Detailed documentation in `global.R` with roxygen2 comments
-- **Improvements Guide**: See `IMPROVEMENTS_README.md` for complete feature list
-- **Plot Comparison**: See `PLOT_LEVEY_COMPARISON.md` for visualization enhancements
 
 ### Key Functions
 
@@ -394,22 +392,6 @@ When reporting issues, please include:
 
 ---
 
-## Citation
-
-If you use `sqs` in your research, please cite:
-
-```bibtex
-@software{cheung2024sqs,
-  author = {Cheung, Foo},
-  title = {sqs: A Shiny App for SomaLogic SomaScan Quality Control},
-  year = {2024},
-  url = {https://github.com/foocheung/sqs_v2},
-  version = {2.0},
-  note = {R package with enhanced Levey-Jennings plots and quality control zones}
-}
-```
-
----
 
 ## Version History
 
@@ -429,10 +411,6 @@ If you use `sqs` in your research, please cite:
 - HTML report generation
 
 ---
-
-**Don't forget to watch the [video tutorial](#-video-tutorial---step-by-step-guide) to get started quickly!**
-
-**For detailed implementation guides and migration instructions, see the documentation folder.**
 
 **Questions?** Open an issue or contact the Foo Cheung
 
