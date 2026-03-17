@@ -44,6 +44,12 @@ Research teams need tools that:
 
 ---
 
+# State of the Field
+
+While data import tools exist for SomaScan data [@somalogic2023], interactive QC applications specifically designed for multi-plate proteomics quality control are limited. Custom QC pipelines require programming expertise and substantial development time, while general-purpose visualization tools require manual adaptation to proteomics-specific quality metrics. `sqs` addresses this gap by providing a dedicated, open-source application that combines SomaScan-specific QC logic, standardized statistical process control visualizations, and automated reporting in a reproducible framework. The decision to develop a standalone application was driven by the need for proteomics-tailored QC procedures, an accessible interface for non-programmers, and regulatory-suitable documentation capabilities.
+
+---
+
 # Key Features and Functionality
 
 ## Quality Control Visualizations
