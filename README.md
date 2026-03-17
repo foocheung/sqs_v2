@@ -4,7 +4,7 @@
 
 `sqs` is an R package built with the [Golem](https://thinkr-open.github.io/golem/) framework, providing a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables proteomics researchers to upload `.adat` files, compute QC metrics (e.g., per-plate CVs, PCA, enhanced Levey-Jennings plots with QC zones), and generate automated HTML reports with professional visualizations. The package integrates with `SomaDataIO` for data handling and supports user-provided historical reference data for comprehensive quality monitoring.
 
-## 📺 Video Tutorial - Step by Step Guide
+## Video Tutorial - Step by Step Guide
 
 Watch this comprehensive video tutorial to learn how to use the SQS application:
 
@@ -22,7 +22,7 @@ https://github.com/user-attachments/assets/27dc365c-8617-4366-af0c-152b20d281ab
 
 ---
 
-## 📊 Example Report
+## Example Report
 
 Click the image below to view a full example HTML report:
 
@@ -274,24 +274,24 @@ Try the enhanced app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https:/
 
 ### Understanding QC Zones in Levey-Jennings Plots
 
-**Zone 1 (±1 SD) - OPTIMAL** ✅
+**Zone 1 (±1 SD) - OPTIMAL** 
 - 68% of points should fall here under normal distribution
 - Process is in statistical control
 - No action needed - continue monitoring
 
-**Zone 2 (±2 SD) - WARNING** ⚠️
+**Zone 2 (±2 SD) - WARNING** 
 - 95% of points should be within this range
 - Points here warrant attention and review
 - May indicate increased variation
 - Document and monitor closely
 
-**Zone 3 (±3 SD) - ACTION** 🔶
+**Zone 3 (±3 SD) - ACTION** 
 - 99.7% of points should be within this range
 - Points here require investigation
 - Consider corrective action
 - Review assay conditions
 
-**Beyond ±3 SD - OUT OF CONTROL** ❌
+**Beyond ±3 SD - OUT OF CONTROL** 
 - Rare event (0.3% probability if random)
 - Likely represents a true quality issue
 - **Immediate action required**
@@ -454,6 +454,6 @@ If you use `sqs` in your research, please cite:
 
 **For detailed implementation guides and migration instructions, see the documentation folder.**
 
-**Questions?** Open an issue or contact the development team.
+**Questions?** Open an issue or contact the Foo Cheung
 
 **Happy Quality Controlling!**
