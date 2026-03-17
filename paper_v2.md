@@ -30,7 +30,7 @@ By providing standardized QC workflows in an accessible format, `sqs` enables re
 
 # Statement of Need
 
-High-throughput proteomics technologies such as SomaScan generate large, multi-plate datasets that are sensitive to batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. However, QC workflows are often performed manually using spreadsheets or custom scripts, which can be time-consuming, inconsistent across studies, and difficult to reproduce.
+High-throughput proteomics technologies such as SomaScan generate large, multi-plate datasets that requires checking for batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. However, QC workflows are often performed manually using spreadsheets or custom scripts, which can be time-consuming, inconsistent across studies, and difficult to reproduce.
 
 Research teams need tools that:
 
@@ -40,13 +40,13 @@ Research teams need tools that:
 4. **Support flexible data export** for downstream statistical analysis and integration with other bioinformatics tools
 5. **Remain accessible** to users without extensive programming expertise
 
-`sqs` was developed to meet these needs by implementing a complete QC workflow specifically designed for SomaScan data. The software has been used in NIH multi-omics studies for several years and more recently in published research involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its effectiveness in translational proteomics workflows.
+`sqs` was developed to meet these needs by implementing a complete QC workflow specifically designed for SomaScan data for non-programmers. The software has been used in NIH multi-omics studies for several years and more recently in published research involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its effectiveness in translational proteomics workflows.
 
 ---
 
 # State of the Field
 
-While data import tools exist for SomaScan data [@somalogic2023], interactive QC applications specifically designed for multi-plate proteomics quality control are limited. Custom QC pipelines require programming expertise and substantial development time, while general-purpose visualization tools require manual adaptation to proteomics-specific quality metrics. `sqs` addresses this gap by providing a dedicated, open-source application that combines SomaScan-specific QC logic, standardized statistical process control visualizations, and automated reporting in a reproducible framework. The decision to develop a standalone application was driven by the need for proteomics-tailored QC procedures, an accessible interface for non-programmers, and regulatory-suitable documentation capabilities.
+While data import tools exist for SomaScan data [@somalogic2023], interactive QC applications specifically designed for quality control are limited. Custom QC pipelines require programming expertise and substantial development time, while general-purpose visualization tools require manual adaptation to proteomics-specific quality metrics. `sqs` addresses this gap by providing a dedicated, open-source application that combines SomaScan-specific QC logic, standardized statistical process control visualizations, and single push button automated reporting in a reproducible framework. The decision to develop a standalone application was driven by the need for proteomics-tailored QC procedures, an accessible interface for non-programmers, and suitable documentation capabilities.
 
 ---
 
