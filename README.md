@@ -181,34 +181,14 @@ reference_data <- data.frame(
   check.names = FALSE
 )
 
-# Save as RDS or CSV
-saveRDS(reference_data, "my_reference_data.rds")
-write.csv(reference_data, "my_reference_data.csv")
+# Save as Excel file
+
 
 # Upload through the app interface
 # The app will automatically use your reference data for comparison
 ```
 
-### Converting from Feather Format
 
-If you have historical data in Feather format (e.g., from `foodata`):
-
-```R
-library(arrow)
-library(dplyr)
-
-# Read feather file
-serum_cvs <- arrow::read_feather("serum-cvs.feather")
-
-# Extract required columns
-reference_data <- serum_cvs %>%
-  select(ExpDate, PlateId, SampleType, `10%`, `50%`, `90%`)
-
-# Save for upload
-saveRDS(reference_data, "levey_reference_data.rds")
-```
-
----
 
 ## Performance
 
