@@ -155,7 +155,7 @@ The repository includes:
 
 # AI Usage Disclosure
 
-Generative AI tools were used to assist in editing and structuring the manuscript text to meet journal formatting and readability requirements. All technical content, software design decisions, implementation details, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
+Generative AI tools were used to assist in editing and structuring the manuscript text and code to meet journal formatting and readability requirements. All technical content, software design decisions, implementation details, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
 
 ---
 
