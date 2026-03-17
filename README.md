@@ -2,9 +2,35 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+`sqs` is an R package built with the [Golem](https://thinkr-open.github.io/golem/) framework, providing a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables proteomics researchers to upload `.adat` files, compute QC metrics (e.g., per-plate CVs, PCA, enhanced Levey-Jennings plots with QC zones), and generate automated HTML reports with professional visualizations. The package integrates with `SomaDataIO` for data handling and supports user-provided historical reference data for comprehensive quality monitoring.
+
+## 📺 Video Tutorial - Step by Step Guide
+
+Watch this comprehensive video tutorial to learn how to use the SQS application:
+
 https://github.com/user-attachments/assets/27dc365c-8617-4366-af0c-152b20d281ab
 
-`sqs` is an R package built with the [Golem](https://thinkr-open.github.io/golem/) framework, providing a Shiny-based web application for quality control (QC) analysis of SomaLogic SomaScan assay data. It enables proteomics researchers to upload `.adat` files, compute QC metrics (e.g., per-plate CVs, PCA, enhanced Levey-Jennings plots with QC zones), and generate automated HTML reports with professional visualizations. The package integrates with `SomaDataIO` for data handling and supports user-provided historical reference data for comprehensive quality monitoring.
+**What you'll learn:**
+- How to upload your SomaScan `.adat` files
+- Navigating the interface and exploring data
+- Generating comprehensive QC reports
+- Interpreting Levey-Jennings plots with QC zones
+- Downloading and saving reports
+- Using custom reference data
+
+**Duration:** ~5 minutes | **Difficulty:** Beginner-friendly
+
+---
+
+## 📊 Example Report
+
+Click the image below to view a full example HTML report:
+
+[![Example QC Report](https://github.com/foocheung/sqs_v2/raw/main/screencapture-file-Users-cheungf-Downloads-Proteomics-QC-Report-2026-03-06-html-2026-03-06-10_22_37.png)](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Report_2026-03-06.html)
+
+*Click the screenshot above to view the [complete interactive HTML report](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Report_2026-03-06.html)*
+
+---
 
 ## Features
 
@@ -31,21 +57,13 @@ https://github.com/user-attachments/assets/27dc365c-8617-4366-af0c-152b20d281ab
 - **Comprehensive QC Tables**: Formatted with `kableExtra` for professional appearance
 - **Interactive Visualizations**: Powered by `ggplot2` and `plotly` for enhanced data exploration
 
-## Example Report
-
-Click the image below to view a full example HTML report:
-
-[![Example QC Report](https://github.com/foocheung/sqs_v2/raw/main/screencapture-file-Users-cheungf-Downloads-Proteomics-QC-Report-2026-03-06-html-2026-03-06-10_22_37.png)](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Example_Report_2026-03-06.html)
-https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Example_Report_2026-03-06.html
-
-*Click the screenshot above to view the [complete interactive HTML report](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Example_Report_2026-03-06.html)*
-
-
 ### Quality Control Monitoring
 - **Statistical Process Control**: Industry-standard QC zones following SPC conventions
 - **Trend Detection**: Visual identification of systematic shifts or drifts
 - **Out-of-Control Alerts**: Automatic flagging of plates beyond ±3 SD
 - **Historical Comparison**: Compare current runs against user-provided reference populations
+
+---
 
 ## What's New in Version 2.0
 
@@ -90,6 +108,8 @@ The `plot_levey` function has been completely redesigned with professional QC vi
 - **Status Indicators**: Real-time feedback on report generation
 - **Responsive Layout**: Optimized for different screen sizes
 
+---
+
 ## Installation
 
 ### Prerequisites
@@ -106,7 +126,9 @@ install.packages("devtools")
 devtools::install_github("foocheung/sqs_v2")
 ```
 
-## Usage
+---
+
+## Quick Start
 
 ### Launch the Application
 
@@ -119,11 +141,11 @@ run_app()
 
 ### Workflow Overview
 
-1. **Upload Data**:
+**Step 1: Upload Data**
    - Click "Browse" to upload your SomaScan `.adat` file
    - Optionally upload historical reference data (CSV/RDS format)
 
-2. **Generate QC Report**:
+**Step 2: Generate QC Report**
    - Click "Generate HTML Report" to analyze data
    - View progress indicators and status updates
    - Reports include:
@@ -133,12 +155,16 @@ run_app()
      - CV distribution analysis
      - Quality control metrics and flags
 
-3. **Review & Export**:
+**Step 3: Review & Export**
    - Preview the report in the "Report Preview" tab
    - Download as self-contained HTML
    - Save to a local folder for archival
 
-### Using Custom Reference Data
+> 💡 **Tip**: Watch the [video tutorial](#-video-tutorial---step-by-step-guide) above for a complete walkthrough!
+
+---
+
+## Using Custom Reference Data
 
 You can now provide your own historical reference data for Levey-Jennings plots:
 
@@ -163,17 +189,48 @@ write.csv(reference_data, "my_reference_data.csv")
 # The app will automatically use your reference data for comparison
 ```
 
+### Converting from Feather Format
+
+If you have historical data in Feather format (e.g., from `foodata`):
+
+```R
+library(arrow)
+library(dplyr)
+
+# Read feather file
+serum_cvs <- arrow::read_feather("serum-cvs.feather")
+
+# Extract required columns
+reference_data <- serum_cvs %>%
+  select(ExpDate, PlateId, SampleType, `10%`, `50%`, `90%`)
+
+# Save for upload
+saveRDS(reference_data, "levey_reference_data.rds")
+```
+
+---
+
 ## Performance
 
 - **Benchmark**: 113.2 seconds for 15 plates on Mac M1 (64 GB, macOS 14.7.6)
 - **Optimized**: Efficient data processing with `tidyverse` and `arrow`
 - **Scalable**: Handles large datasets up to 500 MB
 
+---
+
 ## Demo
 
 Try the enhanced app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
 
+---
+
 ## Documentation
+
+### Quick References
+- **Quick Start Guide**: See `QUICK_START.md` for rapid implementation
+- **Function Reference**: Detailed documentation in `global.R` with roxygen2 comments
+- **Improvements Guide**: See `IMPROVEMENTS_README.md` for complete feature list
+- **Plot Comparison**: See `PLOT_LEVEY_COMPARISON.md` for visualization enhancements
 
 ### Key Functions
 
@@ -210,36 +267,45 @@ Try the enhanced app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https:/
 #' @return Data frame with KS test results
 ```
 
-                   # MIT License
-```
+---
+
 
 ## Quality Control Interpretation Guide
 
 ### Understanding QC Zones in Levey-Jennings Plots
 
-**Zone 1 (±1 SD) - OPTIMAL**
+**Zone 1 (±1 SD) - OPTIMAL** ✅
 - 68% of points should fall here under normal distribution
 - Process is in statistical control
 - No action needed - continue monitoring
 
-**Zone 2 (±2 SD) - WARNING**
+**Zone 2 (±2 SD) - WARNING** ⚠️
 - 95% of points should be within this range
 - Points here warrant attention and review
 - May indicate increased variation
 - Document and monitor closely
 
-**Zone 3 (±3 SD) - ACTION**
+**Zone 3 (±3 SD) - ACTION** 🔶
 - 99.7% of points should be within this range
 - Points here require investigation
 - Consider corrective action
 - Review assay conditions
 
-**Beyond ±3 SD - OUT OF CONTROL**
+**Beyond ±3 SD - OUT OF CONTROL** ❌
 - Rare event (0.3% probability if random)
 - Likely represents a true quality issue
 - **Immediate action required**
 - Investigate root cause before proceeding
 
+### Westgard Rules (Optional Implementation)
+The enhanced plots support manual application of Westgard rules:
+- **1₃ₛ**: Single point beyond ±3 SD (reject)
+- **2₂ₛ**: Two consecutive points beyond ±2 SD (warning)
+- **R₄ₛ**: Range of 4 SD between consecutive points (warning)
+- **4₁ₛ**: Four consecutive points beyond ±1 SD (trend)
+- **10ₓ**: Ten consecutive points on same side of center (systematic shift)
+
+---
 
 ## Advanced Features
 
@@ -256,6 +322,29 @@ center = "median"  # More robust (default)
 center = "mean"    # Traditional approach
 ```
 
+### Batch Processing
+Process multiple files programmatically:
+
+```R
+# List of adat files
+adat_files <- list.files("data/", pattern = "\\.adat$", full.names = TRUE)
+
+# Process each file
+results <- lapply(adat_files, function(file) {
+  adat <- SomaDataIO::read_adat(file)
+  # Generate report
+  # ...
+})
+```
+
+### Exporting High-Resolution Plots
+```R
+# Save enhanced Levey-Jennings plot
+plot <- plot_levey(data, header, reference, show_zones = TRUE)
+ggsave("qc_plot.png", plot, width = 10, height = 6, dpi = 300)
+```
+
+---
 
 ## Troubleshooting
 
@@ -284,6 +373,18 @@ options(shiny.maxRequestSize = 1000 * 1024^2)  # 1 GB
 - Column names must match exactly: "10%", "50%", "90%"
 - Save as RDS or CSV format
 
+---
+
+## Contributing
+
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request with clear description
+4. Include tests for new functionality
+
+---
+
 ## Issues
 
 Report issues or suggest features on the [GitHub Issues page](https://github.com/foocheung/sqs_v2/issues).
@@ -294,17 +395,24 @@ When reporting issues, please include:
 - Minimal reproducible example
 - Error messages or unexpected behavior
 
+---
+
+
 ## License
 
 `sqs` is licensed under the [MIT License](LICENSE).
 
+---
+
 ## Acknowledgements
 
-- Developed by Foo Cheung
+- Developed by Foo Cheung ([ORCID: add-orcid])
 - Built with the [Golem](https://thinkr-open.github.io/golem/) framework
 - Uses [SomaDataIO](https://somalogic.github.io/SomaDataIO/) for data handling
 - Enhanced visualizations powered by [ggplot2](https://ggplot2.tidyverse.org/)
 - Statistical process control concepts based on Westgard QC guidelines
+
+---
 
 ## Citation
 
@@ -320,6 +428,8 @@ If you use `sqs` in your research, please cite:
   note = {R package with enhanced Levey-Jennings plots and quality control zones}
 }
 ```
+
+---
 
 ## Version History
 
@@ -340,6 +450,10 @@ If you use `sqs` in your research, please cite:
 
 ---
 
-**Questions?** Open an issue or contact me.
+**Don't forget to watch the [video tutorial](#-video-tutorial---step-by-step-guide) to get started quickly!**
+
+**For detailed implementation guides and migration instructions, see the documentation folder.**
+
+**Questions?** Open an issue or contact the development team.
 
 **Happy Quality Controlling!**
