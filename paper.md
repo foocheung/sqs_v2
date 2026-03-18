@@ -98,8 +98,8 @@ Visualization design follows established statistical process control conventions
 * QC report generation: ~2 minutes for multi-plate datasets
 * Data export operations: <5 seconds for standard formats
 * Excel export: <15 seconds with progress indicators
-* Maximum dataset size: ~500 MB
-
+* Performance: Handles large multi-plate files with optimized performance
+* Batch File Support: Process multiple .adat files in one run using custom reference data, generating individual reports and summary statistics (
 These performance characteristics enable rapid QC assessment during data review and integration into routine workflows without requiring specialized computing infrastructure.
 
 ---
