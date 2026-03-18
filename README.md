@@ -17,6 +17,7 @@ https://github.com/user-attachments/assets/27dc365c-8617-4366-af0c-152b20d281ab
 - Interpreting Levey-Jennings plots with QC zones
 - Downloading and saving reports
 - Using custom reference data
+- Automated processing of multiple datasets with individual reports
 
 **Duration:** ~5 minutes | **Difficulty:** Beginner-friendly
 
@@ -38,43 +39,22 @@ Click the image below to view a full example HTML report:
 - **Flexible Data Input**: Upload SomaScan `.adat` files directly through the web interface
 - **Custom Reference Data**: Upload your own historical plate controls and calibrator data for comparison
 - **Large File Support**: Handles files up to 500 MB with optimized performance
-
-### Enhanced QC Metrics
-- **Coefficient of Variation (CV) Analysis**: Calculate per-plate CV statistics with quantile summaries (10%, 50%, 90%)
-- **Principal Component Analysis (PCA)**: Interactive sample clustering visualization with variance explained
-- **Advanced Levey-Jennings Plots** (NEW v2.0):
-  - Color-coded quality control zones (±1, ±2, ±3 SD)
-  - Visual zone indicators with shaded backgrounds
-  - Different point shapes for each QC zone
-  - Enhanced titles and subtitles with key statistics
-  - Multiple SD levels with distinct line types
-  - Configurable appearance options
-
-### Professional Reporting
-- **Interactive Interface**: Modern, card-based UI with intuitive navigation and help documentation
-- **Automated HTML Reports**: Self-contained reports with embedded plots and tables
-- **Publication-Ready Plots**: High-resolution visualizations suitable for presentations and publications
-- **Comprehensive QC Tables**: Formatted with `kableExtra` for professional appearance
-- **Interactive Visualizations**: Powered by `ggplot2` and `plotly` for enhanced data exploration
-
-### Quality Control Monitoring
-- **Statistical Process Control**: Industry-standard QC zones following SPC conventions
-- **Trend Detection**: Visual identification of systematic shifts or drifts
-- **Out-of-Control Alerts**: Automatic flagging of plates beyond ±3 SD
-- **Historical Comparison**: Compare current runs against user-provided reference populations
+- **Batch File Support**: Process multiple .adat files in one run using custom reference data, generating individual reports and summary statistics (see below)
 
 ---
 
 ## What's New in Version 2.0
 
+- **Batch File Support**: Automated processing of multiple .adat files with user-provided historical reference data and individual HTML reports
+
 ### Enhanced Levey-Jennings Plots
 The `plot_levey` function has been completely redesigned with professional QC visualization features:
 
 - **Color-Coded QC Zones**:
-  - Zone 1 (±1 SD): Light blue - Optimal range (68% of data expected)
-  - Zone 2 (±2 SD): Yellow - Warning range (95% of data expected)
-  - Zone 3 (±3 SD): Light green - Action range (99.7% of data expected)
-  - Beyond ±3 SD: Out of control - Requires immediate action
+  - Zone 1 (±1 SD)
+  - Zone 2 (±2 SD)
+  - Zone 3 (±3 SD)
+  - Beyond ±3 SD
 
 - **Enhanced Visual Elements**:
   - Different point shapes indicate QC zone membership
@@ -189,99 +169,18 @@ reference_data <- data.frame(
 ```
 
 
-
 ## Performance
 
 - **Benchmark**: 113.2 seconds for 15 plates on Mac M1 (64 GB, macOS 14.7.6)
 - **Optimized**: Efficient data processing with `tidyverse` and `arrow`
 - **Scalable**: Handles large datasets up to 500 MB
-
+- **Batch Processing**: Automated processing of multiple datasets with individual reports
+See below for batch processing in R
 ---
 
 ## Demo
 
-Try the enhanced app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
-
----
-
-## Documentation
-
-### Quick References
-- **Quick Start Guide**: See `QUICK_START.md` for rapid implementation
-- **Function Reference**: Detailed documentation in `global.R` with roxygen2 comments
-
-### Key Functions
-
-#### `plot_levey()` - Enhanced Levey-Jennings Plot
-```R
-#' Creates an improved Levey-Jennings plot with QC zones
-#'
-#' @param adat_tbl Data table with SomaScan data
-#' @param adat_header Header information from ADAT file
-#' @param df_cvs_all Historical CV data (user-provided)
-#' @param sample_type Sample type: "QC", "Calibrator", etc.
-#' @param sd_levels SD levels for control limits (default: c(1,2,3))
-#' @param center "median" or "mean" centering
-#' @param show_zones Show color-coded QC zones (default: TRUE)
-#' @param point_size Point size for plot (default: 2.5)
-#' @return ggplot2 object with enhanced visualization
-```
-
-#### `safe_cv()` - Robust CV Calculation
-```R
-#' Calculate coefficient of variation safely
-#'
-#' @param x Numeric vector
-#' @return CV as proportion (NA for invalid inputs)
-```
-
-#### `ks_test()` - Distribution Comparison
-```R
-#' Kolmogorov-Smirnov test for CV distributions
-#'
-#' @param df_cvs_samp Sample CV data
-#' @param df_cvs_all Historical CV data (user-provided)
-#' @param sample_type Sample type for comparison
-#' @return Data frame with KS test results
-```
-
----
-
-
-## Quality Control Interpretation Guide
-
-### Understanding QC Zones in Levey-Jennings Plots
-
-**Zone 1 (±1 SD) - OPTIMAL** 
-- 68% of points should fall here under normal distribution
-- Process is in statistical control
-- No action needed - continue monitoring
-
-**Zone 2 (±2 SD) - WARNING** 
-- 95% of points should be within this range
-- Points here warrant attention and review
-- May indicate increased variation
-- Document and monitor closely
-
-**Zone 3 (±3 SD) - ACTION** 
-- 99.7% of points should be within this range
-- Points here require investigation
-- Consider corrective action
-- Review assay conditions
-
-**Beyond ±3 SD - OUT OF CONTROL** 
-- Rare event (0.3% probability if random)
-- Likely represents a true quality issue
-- **Immediate action required**
-- Investigate root cause before proceeding
-
-### Westgard Rules (Optional Implementation)
-The enhanced plots support manual application of Westgard rules:
-- **1₃ₛ**: Single point beyond ±3 SD (reject)
-- **2₂ₛ**: Two consecutive points beyond ±2 SD (warning)
-- **R₄ₛ**: Range of 4 SD between consecutive points (warning)
-- **4₁ₛ**: Four consecutive points beyond ±1 SD (trend)
-- **10ₓ**: Ten consecutive points on same side of center (systematic shift)
+Try the app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
 
 ---
 
@@ -301,27 +200,344 @@ center = "mean"    # Traditional approach
 ```
 
 ### Batch Processing
-Process multiple files programmatically:
+Automatically process hundreds of .adat files against your own historical reference data with comprehensive QC reports
 
 ```R
-# List of adat files
-adat_files <- list.files("data/", pattern = "\\.adat$", full.names = TRUE)
+# ==============================================================================
+# Batch Processing SomaScan Files with Report Generation
+# ==============================================================================
 
-# Process each file
+library(SomaDataIO)
+library(dplyr)
+library(rmarkdown)
+library(readxl)
+source("./R/global.R")
+
+# ==============================================================================
+# Setup: Define paths and load reference data
+# ==============================================================================
+
+# Directory containing .adat files
+adat_dir <- "~/Downloads/TEST_SQS"
+
+# Load reference data from synthetic_data.xlsx
+message("Loading reference data from synthetic_data.xlsx...")
+df_cvs_all <- readxl::read_excel("inst/data/synthetic_data.xlsx")
+
+# Fix column names - remove escaped backticks if present
+names(df_cvs_all) <- gsub("^`|`$", "", names(df_cvs_all))
+
+# Convert ExpDate to Date class to match what global.R expects
+df_cvs_all <- df_cvs_all %>%
+  dplyr::mutate(ExpDate = as.Date(ExpDate))
+
+# Verify required columns exist
+required_cols <- c("ExpDate", "PlateId", "SampleType", "10%", "50%", "90%")
+missing_cols <- required_cols[!required_cols %in% names(df_cvs_all)]
+if (length(missing_cols) > 0) {
+  cat("Available columns:", paste(names(df_cvs_all), collapse = ", "), "\n")
+  stop("synthetic_data.xlsx is missing required columns: ",
+       paste(missing_cols, collapse = ", "))
+}
+
+message("Reference data loaded: ", nrow(df_cvs_all), " historical plates")
+
+# Output directory for reports
+output_dir <- "batch_qc_reports"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+# ==============================================================================
+# Batch Processing Function
+# ==============================================================================
+
+process_adat_file <- function(file, df_cvs_all, output_dir) {
+
+  message(paste("Processing:", basename(file)))
+
+  tryCatch({
+    # Read ADAT file
+    adat <- SomaDataIO::read_adat(file)
+
+    # Extract data and header
+    adat_tbl <- adat
+    adat_header <- attributes(adat)
+
+    # Get experiment date for naming
+    exp_date <- as.character(adat_header$Header.Meta$HEADER$ExpDate)
+    file_basename <- tools::file_path_sans_ext(basename(file))
+
+    # Create timestamped output filename
+    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+    report_name <- paste0(file_basename, "_QC_Report_", timestamp, ".html")
+    report_path <- file.path(output_dir, report_name)
+
+    # Generate QC plots
+    message("  - Generating QC plots...")
+
+    # Levey-Jennings plot for QC samples
+    levey_qc <- plot_levey(
+      adat_tbl = adat_tbl,
+      adat_header = adat_header,
+      df_cvs_all = df_cvs_all,
+      sample_type = "QC",
+      sd_levels = c(1, 2, 3),
+      show_zones = TRUE
+    )
+
+    # Levey-Jennings plot for Calibrators
+    levey_cal <- plot_levey(
+      adat_tbl = adat_tbl,
+      adat_header = adat_header,
+      df_cvs_all = df_cvs_all,
+      sample_type = "Calibrator",
+      sd_levels = c(1, 2, 3),
+      show_zones = TRUE
+    )
+
+    # PCA plot
+    pca_dat <- adat_tbl %>%
+      select(starts_with("seq."))
+    pca_res <- prcomp(pca_dat, scale = TRUE)
+    pca_scores <- as.data.frame(pca_res$x)
+
+    plot_dat <- cbind(
+      adat_tbl[, c("SampleType", "PlateId", "SampleId")],
+      pca_scores
+    )
+
+    variance_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
+    variance_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
+
+    pca_plot <- ggplot2::ggplot(plot_dat,
+                                 ggplot2::aes(x = PC1, y = PC2, color = SampleType)) +
+      ggplot2::geom_point(size = 2) +
+      ggplot2::labs(
+        x = paste0("PC1 (", variance_pc1, "%)"),
+        y = paste0("PC2 (", variance_pc2, "%)"),
+        title = "PCA by Sample Type"
+      ) +
+      ggplot2::theme_minimal()
+
+    # Calculate summary statistics
+    message("  - Calculating QC metrics...")
+
+    # Sample counts
+    sample_summary <- table(adat_tbl$SampleType, adat_tbl$PlateId)
+
+    # Flagged samples
+    flagged_samples <- adat_tbl %>%
+      filter(RowCheck == "FLAG") %>%
+      select(PlateId, SampleId, SampleType)
+
+    # CV statistics for calibrators
+    df_cvs_cal <- adat_tbl %>%
+      filter(SampleType == "Calibrator") %>%
+      select(PlateId, starts_with("seq.")) %>%
+      group_by(PlateId) %>%
+      summarise(across(starts_with("seq."), safe_cv), .groups = "drop") %>%
+      tidyr::gather(key = "SeqId", value = "CV", -PlateId) %>%
+      filter(is.finite(CV)) %>%
+      group_by(PlateId) %>%
+      summarise(
+        `10%` = round(quantile(CV, 0.1, na.rm = TRUE) * 100, 1),
+        `50%` = round(median(CV, na.rm = TRUE) * 100, 1),
+        `90%` = round(quantile(CV, 0.9, na.rm = TRUE) * 100, 1),
+        .groups = "drop"
+      )
+
+    # Generate HTML report
+    message("  - Rendering HTML report...")
+
+    # Create temporary R Markdown file
+    rmd_content <- c(
+      '---',
+      paste0('title: "QC Report - ', file_basename, '"'),
+      paste0('date: "', Sys.Date(), '"'),
+      'output:',
+      '  html_document:',
+      '    toc: true',
+      '    toc_float: true',
+      '    theme: flatly',
+      '---',
+      '',
+      '```{r setup, include=FALSE}',
+      'knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)',
+      'library(knitr)',
+      'library(kableExtra)',
+      '```',
+      '',
+      '# Summary',
+      '',
+      paste0('**File:** ', basename(file), '  '),
+      paste0('**Experiment Date:** ', exp_date, '  '),
+      paste0('**Report Generated:** ', Sys.time(), '  '),
+      paste0('**Reference Data:** synthetic_data.xlsx (', nrow(df_cvs_all), ' historical plates)  '),
+      '',
+      '# Sample Counts',
+      '',
+      '```{r sample_counts}',
+      'kable(sample_summary, caption = "Sample Counts by Type and Plate") %>%',
+      '  kable_styling(bootstrap_options = c("striped", "hover"))',
+      '```',
+      '',
+      '# Flagged Samples',
+      '',
+      '```{r flagged_samples}',
+      'if (nrow(flagged_samples) == 0) {',
+      '  cat("No samples flagged during QC.")',
+      '} else {',
+      '  kable(flagged_samples, caption = "Flagged Samples") %>%',
+      '    kable_styling(bootstrap_options = c("striped", "hover"))',
+      '}',
+      '```',
+      '',
+      '# PCA Plot',
+      '',
+      '```{r pca_plot, fig.width=8, fig.height=6}',
+      'print(pca_plot)',
+      '```',
+      '',
+      '# Levey-Jennings: QC Samples',
+      '',
+      '```{r levey_qc, fig.width=10, fig.height=6}',
+      'print(levey_qc)',
+      '```',
+      '',
+      '# Levey-Jennings: Calibrators',
+      '',
+      '```{r levey_cal, fig.width=10, fig.height=6}',
+      'print(levey_cal)',
+      '```',
+      '',
+      '# Calibrator CV Statistics',
+      '',
+      '```{r cal_cvs}',
+      'kable(df_cvs_cal, caption = "Calibrator CV Quantiles by Plate") %>%',
+      '  kable_styling(bootstrap_options = c("striped", "hover"))',
+      '```'
+    )
+
+    # Write temporary Rmd file
+    temp_rmd <- tempfile(fileext = ".Rmd")
+    writeLines(rmd_content, temp_rmd)
+
+    # Ensure output directory exists before rendering
+    if (!dir.exists(output_dir)) {
+      dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+    }
+
+    # Create environment with all necessary objects for the report
+    report_env <- new.env(parent = globalenv())
+    report_env$sample_summary <- sample_summary
+    report_env$flagged_samples <- flagged_samples
+    report_env$pca_plot <- pca_plot
+    report_env$levey_qc <- levey_qc
+    report_env$levey_cal <- levey_cal
+    report_env$df_cvs_cal <- df_cvs_cal
+
+    # Render to HTML (use output_dir and basename separately)
+    rmarkdown::render(
+      input = temp_rmd,
+      output_file = report_name,
+      output_dir = output_dir,
+      envir = report_env,
+      quiet = TRUE
+    )
+
+    message("  ✓ Report saved: ", report_path)
+
+    # Return summary information
+    return(list(
+      file = basename(file),
+      exp_date = exp_date,
+      report_path = report_path,
+      n_samples = nrow(adat_tbl),
+      n_flagged = nrow(flagged_samples),
+      n_plates = length(unique(adat_tbl$PlateId)),
+      status = "Success"
+    ))
+
+  }, error = function(e) {
+    message("  ✗ Error processing file: ", conditionMessage(e))
+    return(list(
+      file = basename(file),
+      exp_date = NA,
+      report_path = NA,
+      n_samples = NA,
+      n_flagged = NA,
+      n_plates = NA,
+      status = paste("Error:", conditionMessage(e))
+    ))
+  })
+}
+
+# ==============================================================================
+# Execute Batch Processing
+# ==============================================================================
+
+# Find all .adat files
+adat_files <- list.files(adat_dir, pattern = "\\.adat$", full.names = TRUE)
+
+message(paste("\nFound", length(adat_files), ".adat files to process\n"))
+
+# Process all files
 results <- lapply(adat_files, function(file) {
-  adat <- SomaDataIO::read_adat(file)
-  # Generate report
-  # ...
+  process_adat_file(file, df_cvs_all, output_dir)
 })
-```
 
-### Exporting High-Resolution Plots
-```R
-# Save enhanced Levey-Jennings plot
-plot <- plot_levey(data, header, reference, show_zones = TRUE)
-ggsave("qc_plot.png", plot, width = 10, height = 6, dpi = 300)
-```
+# ==============================================================================
+# Summarize Results
+# ==============================================================================
 
+# Convert results to data frame
+results_df <- do.call(rbind, lapply(results, function(x) {
+  data.frame(
+    File = x$file,
+    ExpDate = x$exp_date,
+    Samples = x$n_samples,
+    Flagged = x$n_flagged,
+    Plates = x$n_plates,
+    Status = x$status,
+    Report = basename(x$report_path),
+    stringsAsFactors = FALSE
+  )
+}))
+
+# Print summary
+message("\n=== Batch Processing Summary ===")
+print(results_df)
+
+# Save summary
+summary_file <- file.path(output_dir, paste0("batch_summary_",
+                                             format(Sys.time(), "%Y%m%d_%H%M%S"),
+                                             ".csv"))
+write.csv(results_df, summary_file, row.names = FALSE)
+message("\nSummary saved to: ", summary_file)
+
+# Count successes and failures
+n_success <- sum(results_df$Status == "Success")
+n_failed <- sum(results_df$Status != "Success")
+
+message("\n", n_success, " files processed successfully")
+if (n_failed > 0) {
+  message(n_failed, " files failed - see summary for details")
+}
+
+message("\nAll reports saved to: ", output_dir)
+
+# ==============================================================================
+# Optional: Export summary statistics to Excel
+# ==============================================================================
+
+if (requireNamespace("writexl", quietly = TRUE)) {
+  summary_excel <- file.path(output_dir, paste0("batch_summary_",
+                                                 format(Sys.time(), "%Y%m%d_%H%M%S"),
+                                                 ".xlsx"))
+  writexl::write_xlsx(results_df, summary_excel)
+  message("Excel summary saved to: ", summary_excel)
+}
+
+```
 ---
 
 ## Troubleshooting
@@ -412,6 +628,6 @@ When reporting issues, please include:
 
 ---
 
-**Questions?** Open an issue or contact the Foo Cheung
+**Questions?** Open an issue or contact the author Foo Cheung
 
 **Happy Quality Controlling!**
