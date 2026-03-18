@@ -41,7 +41,7 @@ Researchers often rely on ad-hoc scripts or spreadsheet workflows to compute coe
 3. **Automated reporting** that documents QC decisions for regulatory or publication purposes.
 4. **Accessible interfaces** that enable non-programmers to perform advanced QC analyses.
 
-The software has already been used in NIH multi-omics studies for several years and more recently for published studies involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its relevance in translational proteomics workflows.
+The software has already been used in multi-omics studies for several years and more recently for published studies involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its relevance in translational proteomics workflows.
 
 ---
 
