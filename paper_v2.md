@@ -161,7 +161,7 @@ The repository includes:
 - **Video Tutorial**: Step-by-step demonstration of data upload, QC analysis, and report generation
 - **Batch Processing Script**: Complete example workflow for automated processing of multiple datasets
 - **Documentation**: Quick start guide, feature descriptions, and plot interpretation guidelines
-- **Live Demo**: Interactive demonstration at [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
+- **Live Demo**: Interactive demonstration
 - **Example Reports**: Sample HTML outputs demonstrating report format and quality
 
 ---
