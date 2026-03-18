@@ -34,17 +34,17 @@ High-throughput proteomics technologies such as SomaScan generate large, multi-p
 
 Researchers require tools that standardize QC procedures, provide intuitive visualizations, and generate automated documentation. Additional needs include flexible data export for downstream analysis, support for batch processing of multiple datasets, and accessibility for users without extensive programming expertise.
 
-While tools exist for SomaScan data processing [@somalogic2023], few solutions provide integrated, interactive QC workflows tailored specifically to multi-plate proteomics data. `sqs` was developed to address this gap by implementing a complete QC workflow that combines domain-specific visualization, statistical process control methods, and reproducible reporting in a single application. The software has been applied in NIH multi-omics studies and published research involving dietary interventions [@link2024vegan] and post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its utility in translational proteomics workflows.
+While tools exist for SomaScan data processing [@somalogic2023], few solutions provide integrated, interactive QC workflows. `sqs` was developed to address this gap by implementing a complete QC workflow that combines domain-specific visualization, statistical process control methods, and reproducible reporting in a single application. The software has been applied in NIH multi-omics studies and more recently used in published research involving dietary interventions [@link2024vegan] and post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its utility in translational proteomics workflows.
 
 ---
 
 # State of the Field
 
-Existing approaches to SomaScan data analysis primarily focus on data import and normalization [@somalogic2023], while QC workflows are often implemented through custom pipelines or general-purpose visualization tools. These approaches require programming expertise and substantial development time, and they lack standardized implementations of proteomics-specific QC metrics.
+Existing approaches to SomaScan data analysis primarily focus on down stream data analysis [@somalogic2023], and while QC workflows are often implemented through custom pipelines or general-purpose visualization tools. These approaches require programming expertise and substantial development time, and they lack standardized implementations of proteomics-specific QC metrics.
 
 General visualization platforms do not natively support statistical process control methods commonly used in laboratory QC, requiring manual adaptation. As a result, QC practices vary widely across research groups, limiting reproducibility and comparability of results.
 
-`sqs` addresses these limitations by providing a dedicated, open-source application that integrates SomaScan-specific QC logic, standardized statistical process control visualizations, and automated reporting in a reproducible framework. The software is designed to be accessible to non-programmers while remaining flexible for advanced users, bridging the gap between usability and methodological rigor.
+`sqs` addresses these limitations by providing a dedicated, open-source application that integrates QC logic, standardized statistical process control visualizations, and automated reporting in a reproducible framework. The software is designed to be accessible to non-programmers while remaining flexible for advanced users, bridging the gap between usability and methodological rigor.
 
 ---
 
