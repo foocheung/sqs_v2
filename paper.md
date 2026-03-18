@@ -11,6 +11,10 @@ tags:
 authors:
   - name: Foo Cheung
     affiliation: 1
+  - name: Brian Sellers
+    affiliation: 1
+  - name: Thomas Langowski
+    affiliation: 1
 affiliations:
   - name: National Institutes of Health, Center for Human Immunology
     index: 1
