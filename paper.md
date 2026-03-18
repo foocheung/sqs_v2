@@ -83,7 +83,7 @@ Benchmarking indicates that the application can process multi-plate datasets in 
 
 # AI Usage Disclosure
 
-Generative AI tools were used to assist in editing and structuring the manuscript text to meet journal formatting and readability requirements. All technical content, software design decisions, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
+Generative AI tools were used to assist in editing and structuring the manuscript text to meet journal formatting and readability requirements and code review suggestions. All technical content, software design decisions, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
 
 ---
 
