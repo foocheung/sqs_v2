@@ -22,7 +22,7 @@ bibliography: paper.bib
 
 `sqs` is an open-source R package that provides an interactive web application for quality control (QC) of SomaLogic SomaScan proteomics data. SomaScan assays measure thousands of proteins simultaneously, producing large and complex datasets that require careful quality checks before scientific interpretation. `sqs` addresses the challenge of performing standardized, reproducible QC by offering a browser-based interface that integrates data upload, statistical visualization, and automated reporting into a single workflow.
 
-The application implements statistical process control methodologies adapted for multi-plate proteomics assays, including enhanced Levey-Jennings plots with color-coded quality zones, principal component analysis for outlier detection, and coefficient of variation tracking across experimental batches. Users can upload SomaScan data files, visualize quality metrics interactively, export processed data matrices in multiple formats, and generate publication-ready HTML reports—all without requiring advanced programming skills.
+The application implements statistical process control methodologies adapted for multi-plate proteomics assays, including enhanced Levey-Jennings plots with color-coded quality zones, principal component analysis for outlier detection, and coefficient of variation tracking across experimental batches. Users can upload SomaScan data files, visualize quality metrics interactively, export processed data matrices in multiple formats, and generate publication-ready HTML reports, all without requiring advanced programming skills.
 
 By providing standardized QC workflows in an accessible format, `sqs` enables researchers, clinicians, and bioinformaticians to quickly assess data quality, identify systematic errors, document QC decisions, and share reproducible outputs with collaborators.
 
@@ -30,7 +30,7 @@ By providing standardized QC workflows in an accessible format, `sqs` enables re
 
 # Statement of Need
 
-High-throughput proteomics technologies such as SomaScan generate large, multi-plate datasets that requires checking for batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. However, QC workflows are often performed manually using spreadsheets or custom scripts, which can be time-consuming, inconsistent across studies, and difficult to reproduce.
+High-throughput technologies generate large, multi-plate datasets can be sensitive to batch effects, assay drift, and technical variability. Ensuring data quality is essential for reliable biological interpretation, especially in clinical and translational research where results may inform downstream experiments or patient studies. However, QC workflows are often performed manually using spreadsheets or custom scripts, which can be time-consuming, inconsistent across studies, and difficult to reproduce.
 
 Research teams need tools that:
 
@@ -38,15 +38,16 @@ Research teams need tools that:
 2. **Provide intuitive visualizations** that allow rapid identification of systematic errors, trends, or failed assay plates
 3. **Generate automated documentation** of QC decisions for regulatory or publication requirements
 4. **Support flexible data export** for downstream statistical analysis and integration with other bioinformatics tools
-5. **Remain accessible** to users without extensive programming expertise
+5. **Enable batch processing** of multiple datasets with user-provided historical reference data, generating individual reports and summary statistics in a single automated workflow
+6. **Remain accessible** to users without extensive programming expertise
 
-`sqs` was developed to meet these needs by implementing a complete QC workflow specifically designed for SomaScan data for non-programmers. The software has been used in NIH multi-omics studies for several years and more recently in published research involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its effectiveness in translational proteomics workflows.
+`sqs` was developed to meet these needs by implementing a complete QC workflow specifically designed for SomaScan data. The software has been used for QC in multi-omics studies for several years and for example more recently in published research involving dietary interventions and immune profiling [@link2024vegan], as well as deep phenotyping of post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its effectiveness in translational proteomics workflows.
 
 ---
 
 # State of the Field
 
-While data import tools exist for SomaScan data [@somalogic2023], interactive QC applications specifically designed for quality control are limited. Custom QC pipelines require programming expertise and substantial development time, while general-purpose visualization tools require manual adaptation to proteomics-specific quality metrics. `sqs` addresses this gap by providing a dedicated, open-source application that combines SomaScan-specific QC logic, standardized statistical process control visualizations, and single push button automated reporting in a reproducible framework. The decision to develop a standalone application was driven by the need for proteomics-tailored QC procedures, an accessible interface for non-programmers, and suitable documentation capabilities.
+While data import tools exist for SomaScan data [@somalogic2023], interactive QC applications specifically designed for multi-plate proteomics quality control are limited. Custom QC pipelines require programming expertise and substantial development time, while general-purpose visualization tools require manual adaptation to proteomics-specific quality metrics. `sqs` addresses this gap by providing a dedicated, open-source application that combines QC logic, standardized statistical process control visualizations, and automated reporting in a reproducible framework. The decision to develop a standalone application was driven by the need for proteomics-tailored QC procedures, an accessible interface for non-programmers, and regulatory-suitable documentation capabilities.
 
 ---
 
@@ -88,6 +89,18 @@ Reports are fully reproducible and can be archived for regulatory documentation 
 
 Users can upload their own historical reference data for Levey-Jennings plots, enabling laboratory-specific quality monitoring and trending over time. The application accepts reference data in multiple formats (CSV, RDS, Feather) and automatically integrates it with current sample data for comparative QC assessment.
 
+## Batch Processing
+
+The application supports automated batch processing of multiple SomaScan datasets through a command-line workflow. Users can process hundreds of `.adat` files in a single run, with each file generating an individual HTML report containing sample counts, flagged samples, PCA plots, Levey-Jennings plots for QC and Calibrator samples, and CV statistics tables. The batch processing workflow:
+
+- Loads user-provided historical reference data from Excel format
+- Processes each dataset sequentially with error handling for individual file failures
+- Generates comprehensive HTML reports using R Markdown templates
+- Produces a summary CSV file documenting processing results for all datasets
+- Provides progress tracking and status messages throughout execution
+
+This capability is particularly valuable for large-scale studies requiring consistent QC assessment across many experimental batches, reducing manual effort while maintaining standardized quality criteria.
+
 ---
 
 # Software Design
@@ -122,7 +135,7 @@ The application is optimized for typical SomaScan dataset sizes encountered in r
 - **QC Report Generation**: 113.2 seconds for 15-plate datasets on Mac M1 hardware (64 GB RAM)
 - **Data Export Operations**: < 5 seconds for CSV/TSV exports of typical datasets (10,000 proteins × 100 samples)
 - **Excel Export**: < 15 seconds with progress indicators
-- **Maximum Dataset Size**: Supports files up to 500 MB with efficient memory management
+- **Maximum Dataset Size**: Supports large datasets with efficient memory management
 
 These performance characteristics enable rapid QC assessment during data review meetings and support integration into routine proteomics workflows without requiring specialized computing infrastructure.
 
@@ -130,11 +143,11 @@ These performance characteristics enable rapid QC assessment during data review 
 
 # Research Impact
 
-`sqs` has been integrated into ongoing proteomics workflows at the NIH Center for Human Immunology, supporting QC analysis for multi-omics and clinical studies. The tool has been used to evaluate numerous SomaScan datasets and contributed to published research in dietary intervention studies examining immune responses [@link2024vegan] and deep phenotyping investigations of post-infectious chronic fatigue syndrome [@walitt2024cfs].
+`sqs` has been integrated into ongoing proteomics workflows, supporting QC analysis for multi-omics and clinical studies. The tool has been used to evaluate numerous SomaScan datasets and contributed to published research in dietary intervention studies examining immune responses [@link2024vegan] and deep phenotyping investigations of post-infectious chronic fatigue syndrome [@walitt2024cfs].
 
-In these projects, `sqs` reduced manual QC effort, improved reproducibility of quality assessment procedures, and facilitated generation of publication-ready figures for collaborative review. The standardized QC workflow has been particularly valuable in multi-site studies where consistent quality criteria must be applied across different laboratories.
+In these projects, `sqs` reduced manual QC effort, improved reproducibility of quality assessment procedures, and facilitated generation of publication-ready figures for collaborative review. The standardized QC workflow will be particularly valuable in complex studies where consistent quality criteria must be applied across different laboratories, conditions and samples.
 
-The open-source repository includes reproducible example datasets, comprehensive documentation, a step-by-step video tutorial (~5 minutes), and a live demonstration application, supporting adoption by external research groups. Because SomaScan is widely used in clinical proteomics and biomarker discovery across multiple disease areas, `sqs` provides a generalizable tool applicable to diverse study designs and research questions.
+The open-source github repository includes comprehensive documentation, a step-by-step video tutorial (~5 minutes), and a live demonstration application.
 
 ---
 
@@ -146,7 +159,7 @@ The repository includes:
 
 - **Installation Instructions**: Detailed setup guide with dependency management
 - **Video Tutorial**: Step-by-step demonstration of data upload, QC analysis, and report generation
-- **Example Datasets**: Sample SomaScan data for testing and validation
+- **Batch Processing Script**: Complete example workflow for automated processing of multiple datasets
 - **Documentation**: Quick start guide, feature descriptions, and plot interpretation guidelines
 - **Live Demo**: Interactive demonstration at [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
 - **Example Reports**: Sample HTML outputs demonstrating report format and quality
@@ -155,7 +168,7 @@ The repository includes:
 
 # AI Usage Disclosure
 
-Generative AI tools were used to assist in editing and structuring the manuscript text and code to meet journal formatting and readability requirements. All technical content, software design decisions, implementation details, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
+Generative AI tools were used to assist in editing and structuring the manuscript text to meet journal formatting and readability requirements. All technical content, software design decisions, implementation details, and validation of claims were performed by the author. The author reviewed and verified all AI-assisted edits and retains full responsibility for the accuracy of the manuscript.
 
 ---
 
