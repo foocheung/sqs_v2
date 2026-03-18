@@ -216,7 +216,7 @@ source("./R/global.R")
 # ==============================================================================
 
 # Directory containing .adat files
-adat_dir <- "~/Downloads/TEST_SQS"
+adat_dir <- "path/to/your/adat/files"
 
 # Load reference data from synthetic_data.xlsx
 message("Loading reference data from synthetic_data.xlsx...")
