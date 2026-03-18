@@ -36,7 +36,7 @@ A full example HTML report:
 ### Data Management
 - **Flexible Data Input**: Upload SomaScan `.adat` files directly through the web interface
 - **Custom Reference Data**: Upload your own historical plate controls and calibrator data for comparison
-- **Large File Support**: Handles files up to 500 MB with optimized performance
+- **Large File Support**: Handles large multi-plate files with optimized performance
 - **Batch File Support**: Process multiple .adat files in one run using custom reference data, generating individual reports and summary statistics (see below)
 
 ---
