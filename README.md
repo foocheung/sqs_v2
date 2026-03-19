@@ -30,6 +30,43 @@ A full example HTML report:
 [![Example QC Report](https://github.com/foocheung/sqs_v2/raw/main/screencapture-file-Users-cheungf-Downloads-Proteomics-QC-Report-2026-03-06-html-2026-03-06-10_22_37.png)](https://github.com/foocheung/sqs_v2/blob/main/Proteomics_QC_Report_2026-03-06.html)
 
 ---
+## Quality Control Interpretation Guide
+
+### QC Pass/Fail Thresholds
+
+The application uses the following acceptance criteria:
+
+**Sample-Level QC:**
+- **RowCheck Flag**: Samples with RowCheck = "FLAG" are automatically identified during SomaScan processing
+- Flagged samples appear in Section 4.1 of the QC report and should be evaluated for potential exclusion
+
+**Normalization Scale Factors (Section 4.2):**
+- **PASS**: Scale factors between 0.4 and 2.5
+- **FAIL**: Scale factors outside this range
+- Applies to: Buffer, Calibrator, Plate, and Sample scale factors
+
+**Calibrator Signal in Tails (Section 5.2):**
+- Monitors percentage of analytes in upper/lower distribution tails
+- **PASS/FAIL** based on tail percentage thresholds
+
+**Calibrator Precision per Plate (Section 5.4):**
+- Reports 10th, 50th (median), and 90th percentile CV values
+- **PASS/FAIL** indicators based on CV thresholds
+- Target median CV: ~5% (typical for well-performing plates)
+
+**Plate-Level Quality Trends (Levey-Jennings Plots, Sections 5.4.1 & 5.5.1):**
+- **Zone 1 (±1 SD)**: Optimal range - PASS
+- **Zone 2 (±2 SD)**: Warning range - requires attention
+- **Zone 3 (±3 SD)**: Action range - investigate conditions
+- **Beyond ±3 SD**: Out of control - plate should be rejected or repeated
+
+**Overall Quality Metrics:**
+- **Target Median CV**: ~5% after normalization
+- **QC Ratio**: 85% of analytes should have ratios between 0.84 and 1.19 (±20% of reference)
+
+These thresholds follow both clinical laboratory QC standards (Westgard rules) and SomaLogic's technical specifications for the SomaScan platform.
+
+---
 
 ## Features
 
