@@ -32,40 +32,244 @@ A full example HTML report:
 ---
 ## Quality Control Interpretation Guide
 
-### QC Pass/Fail Thresholds
+Quality Control Interpretation Guide
+QC Pass/Fail Thresholds
+The application uses the following acceptance criteria aligned aligned with existing specifications:
+Sample-Level QC (Section 4.1):
 
-The application uses the following acceptance criteria:
+RowCheck Flag: Samples with RowCheck = "FLAG" are automatically identified during SomaScan processing
+How it's calculated: The RowCheck flag is assigned by SomaLogic's internal QC algorithms during .adat file generation. 
 
-**Sample-Level QC:**
-- **RowCheck Flag**: Samples with RowCheck = "FLAG" are automatically identified during SomaScan processing
-- Flagged samples appear in Section 4.1 of the QC report and should be evaluated for potential exclusion
+In the app: Flagged samples are extracted directly from the RowCheck column in the .adat file and displayed in Section 4.1
+Code snippet:
 
-**Normalization Scale Factors (Section 4.2):**
-- **PASS**: Scale factors between 0.4 and 2.5
-- **FAIL**: Scale factors outside this range
-- Applies to: Buffer, Calibrator, Plate, and Sample scale factors
+r  # Extract flagged samples from ADAT file
+  flagged_samples <- adat_tbl %>%
+    filter(RowCheck == "FLAG") %>%
+    select(PlateId, SampleId, SampleType, RowCheck)
+  
+  # Count flagged samples
+  n_flagged <- nrow(flagged_samples)
 
-**Calibrator Signal in Tails (Section 5.2):**
-- Monitors percentage of analytes in upper/lower distribution tails
-- **PASS/FAIL** based on tail percentage thresholds
+Action: Review flagged samples and consider excluding them from downstream analysis
 
-**Calibrator Precision per Plate (Section 5.4):**
-- Reports 10th, 50th (median), and 90th percentile CV values
-- **PASS/FAIL** indicators based on CV thresholds
-- Target median CV: ~5% (typical for well-performing plates)
+Normalization Scale Factors (Section 4.2):
 
-**Plate-Level Quality Trends (Levey-Jennings Plots, Sections 5.4.1 & 5.5.1):**
-- **Zone 1 (±1 SD)**: Optimal range - PASS
-- **Zone 2 (±2 SD)**: Warning range - requires attention
-- **Zone 3 (±3 SD)**: Action range - investigate conditions
-- **Beyond ±3 SD**: Out of control - plate should be rejected or repeated
+PASS: Scale factors between 0.4 and 2.5
+FAIL: Scale factors outside this range
+Applies to: Buffer, Calibrator, Plate, and Sample scale factors
+How it's calculated:
 
-**Overall Quality Metrics:**
-- **Target Median CV**: ~5% after normalization
-- **QC Ratio**: 85% of analytes should have ratios between 0.84 and 1.19 (±20% of reference)
+Scale factors are computed during SomaScan normalization to adjust for technical variation
+Hybridization Normalization: Corrects for differences in hybridization efficiency using median signal from hybridization controls
+Median Signal Normalization: Adjusts each sample to a common median signal level across all proteins
+Plate Scale Factor: Normalizes plate-to-plate variation using calibrator samples
+Formula: Scale Factor = Target Value / Observed Value
+Target range (0.4 - 2.5) represents acceptable biological and technical variation
 
-These thresholds follow both clinical laboratory QC standards (Westgard rules) and SomaLogic's technical specifications for the SomaScan platform.
+In the app: Scale factors are extracted from the .adat file metadata and compared against the 0.4-2.5 threshold
+Code snippet:
 
+r  # Extract scale factors from ADAT header
+  scale_factors <- adat_tbl %>%
+    select(SampleType, HybControlNormScale, 
+           MedianSignalNormScale, PlateScale_ReferenceNormScale) %>%
+    distinct()
+  
+  # Check if scale factors are within acceptable range (0.4 - 2.5)
+  scale_factors <- scale_factors %>%
+    mutate(
+      Hyb_Pass = between(HybControlNormScale, 0.4, 2.5),
+      Median_Pass = between(MedianSignalNormScale, 0.4, 2.5),
+      Plate_Pass = between(PlateScale_ReferenceNormScale, 0.4, 2.5),
+      Overall_Pass = Hyb_Pass & Median_Pass & Plate_Pass
+    )
+
+Action: Samples with scale factors outside 0.4-2.5 indicate potential technical issues (e.g., pipetting errors, sample degradation)
+
+Calibrator Signal in Tails (Section 5.2):
+
+Monitors: Percentage of analytes in upper/lower distribution tails
+How it's calculated:
+
+For each calibrator sample, calculate the ratio: Signal Ratio = Observed Signal / Expected Signal
+Determine acceptance criteria (typically 0.8 - 1.2, or ±20% from expected)
+Count percentage of proteins falling below lower threshold (lower tail)
+Count percentage of proteins falling above upper threshold (upper tail)
+PASS: <15% of analytes in tails (i.e., ≥85% within acceptance range)
+FAIL: ≥15% of analytes in tails
+
+
+In the app: Compares each calibrator sample's protein measurements against expected reference values and computes tail percentages
+Code snippet:
+
+r  # Calculate signal ratios for calibrator samples
+  calibrator_data <- adat_tbl %>%
+    filter(SampleType == "Calibrator") %>%
+    select(PlateId, SampleId, starts_with("seq."))
+  
+  # For each calibrator, calculate ratio to expected reference
+  signal_ratios <- calibrator_data %>%
+    mutate(across(starts_with("seq."), 
+                  ~ .x / expected_reference_value))
+  
+  # Calculate tail percentages
+  tail_stats <- signal_ratios %>%
+    group_by(PlateId) %>%
+    summarise(
+      lower_tail = mean(. < 0.8, na.rm = TRUE) * 100,  # Below 0.8
+      upper_tail = mean(. > 1.2, na.rm = TRUE) * 100,  # Above 1.2
+      total_in_tails = lower_tail + upper_tail,
+      Pass = total_in_tails < 15  # PASS if <15% in tails
+    )
+
+Action: High tail percentages suggest systematic bias or assay drift
+
+Calibrator Precision per Plate (Section 5.4):
+
+Reports: 10th, 50th (median), and 90th percentile CV values
+How it's calculated:
+
+For each plate, identify all calibrator samples (typically 3-6 replicates per plate)
+For each protein (seq.* column), calculate CV across calibrator replicates:
+
+CV = (Standard Deviation / Mean) × 100%
+
+
+Across all ~7000 proteins, calculate:
+
+10th percentile: 10% of proteins have CV below this value (best precision)
+50th percentile (Median): Middle value - typical precision for the plate
+90th percentile: 90% of proteins have CV below this value (acceptable upper limit)
+
+
+PASS thresholds (typical):
+
+10% CV < 4%
+50% CV < 5-6%
+90% CV < 10-12%
+
+
+FAIL: Median CV > 10% or 90th percentile CV > 15%
+
+
+In the app: The safe_cv() function computes CV for each protein, then quantile() calculates the 10%, 50%, 90% percentiles
+Code snippet:
+
+r  # Define CV calculation function
+  safe_cv <- function(x) {
+    m <- mean(x, na.rm = TRUE)
+    s <- sd(x, na.rm = TRUE)
+    if (!is.finite(m) || m <= 0) return(NA_real_)
+    s / m
+  }
+  
+  # Calculate CV per plate for calibrator samples
+  df_cvs_per_plate <- adat_tbl %>%
+    filter(SampleType == "Calibrator") %>%
+    select(PlateId, starts_with("seq.")) %>%
+    group_by(PlateId) %>%
+    summarise(across(starts_with("seq."), safe_cv), .groups = "drop")
+  
+  # Calculate CV quantiles (10%, 50%, 90%) across all proteins
+  df_cvs_quantiles <- df_cvs_per_plate %>%
+    pivot_longer(-PlateId, names_to = "SeqId", values_to = "CV") %>%
+    group_by(PlateId) %>%
+    summarise(
+      `10%` = round(quantile(CV, 0.10, na.rm = TRUE) * 100, 1),
+      `50%` = round(median(CV, na.rm = TRUE) * 100, 1),
+      `90%` = round(quantile(CV, 0.90, na.rm = TRUE) * 100, 1),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      Pass = `50%` <= 6 & `90%` <= 12  # Example thresholds
+    )
+
+Action: High CV values indicate poor replicate reproducibility, suggesting technical problems with the plate
+
+Plate-Level Quality Trends (Levey-Jennings Plots, Sections 5.4.1 & 5.5.1):
+
+Zone 1 (±1 SD): Optimal range - PASS
+Zone 2 (±2 SD): Warning range - requires attention
+Zone 3 (±3 SD): Action range - investigate conditions
+Beyond ±3 SD: Out of control - plate should be rejected or repeated
+How it's calculated:
+
+Calculate median CV (50th percentile) for each historical plate in reference data
+Compute reference center: median(historical median CVs) or mean(historical median CVs)
+Compute reference standard deviation: SD(historical median CVs)
+For current plates, plot median CV against historical distribution
+Classify each plate into QC zones:
+
+|Current CV - Reference Center| ≤ 1×SD → Zone 1 (optimal)
+1×SD < |Current CV - Reference Center| ≤ 2×SD → Zone 2 (warning)
+2×SD < |Current CV - Reference Center| ≤ 3×SD → Zone 3 (action)
+|Current CV - Reference Center| > 3×SD → Out of control (fail)
+
+
+In the app: The plot_levey() function implements this calculation using historical reference data
+Code snippet:
+
+r  # Calculate reference statistics from historical data
+  ref_center <- median(df_cvs_all$`50%`, na.rm = TRUE)
+  ref_sd <- sd(df_cvs_all$`50%`, na.rm = TRUE)
+  
+  # Classify current plates into QC zones
+  current_plates <- df_cvs_quantiles %>%
+    mutate(
+      deviation = abs(`50%` - ref_center),
+      QC_Zone = case_when(
+        deviation <= ref_sd ~ "Zone 1 (±1 SD)",
+        deviation <= 2 * ref_sd ~ "Zone 2 (±2 SD)",
+        deviation <= 3 * ref_sd ~ "Zone 3 (±3 SD)",
+        TRUE ~ "Out of Control (>±3 SD)"
+      ),
+      Pass = deviation <= 3 * ref_sd
+    )
+  
+  # Create Levey-Jennings plot
+  plot_levey(
+    adat_tbl = adat_tbl,
+    adat_header = adat_header,
+    df_cvs_all = df_cvs_all,
+    sample_type = "Calibrator",
+    sd_levels = c(1, 2, 3),
+    show_zones = TRUE
+  )
+
+Action: Follow Westgard rules - consecutive violations or trends indicate systematic problems
+
+Overall Quality Metrics:
+
+Target Median CV: ~5% after normalization (indicates excellent plate quality)
+QC Ratio: 85% of analytes should have ratios between 0.84 and 1.19 (±20% of reference)
+How QC Ratio is calculated:
+
+For each protein in QC samples: QC Ratio = Observed Signal / Historical Reference Signal
+Count percentage of proteins with ratios in range [0.84, 1.19]
+PASS: ≥85% of proteins within range
+FAIL: <85% of proteins within range
+
+
+Code snippet:
+
+r  # Calculate QC ratios
+  qc_ratios <- adat_tbl %>%
+    filter(SampleType == "QC") %>%
+    select(starts_with("seq.")) %>%
+    mutate(across(starts_with("seq."), 
+                  ~ .x / reference_signal))
+  
+  # Calculate percentage within acceptable range
+  qc_stats <- qc_ratios %>%
+    summarise(
+      pct_in_range = mean(
+        across(starts_with("seq."), 
+               ~ between(.x, 0.84, 1.19))
+      ) * 100,
+      Pass = pct_in_range >= 85
+    )
+These thresholds follow both clinical laboratory QC standards (Westgard rules) and technical specifications for the platform.
 ---
 
 ## Features
