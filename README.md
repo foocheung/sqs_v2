@@ -43,14 +43,15 @@ How it's calculated: The RowCheck flag is assigned by SomaLogic's internal QC al
 In the app: Flagged samples are extracted directly from the RowCheck column in the .adat file and displayed in Section 4.1
 Code snippet:
 
-r  # Extract flagged samples from ADAT file
+```R
+# Extract flagged samples from ADAT file
   flagged_samples <- adat_tbl %>%
     filter(RowCheck == "FLAG") %>%
     select(PlateId, SampleId, SampleType, RowCheck)
   
   # Count flagged samples
   n_flagged <- nrow(flagged_samples)
-
+```
 Action: Review flagged samples and consider excluding them from downstream analysis
 
 Normalization Scale Factors (Section 4.2):
@@ -70,7 +71,8 @@ Target range (0.4 - 2.5) represents acceptable biological and technical variatio
 In the app: Scale factors are extracted from the .adat file metadata and compared against the 0.4-2.5 threshold
 Code snippet:
 
-r  # Extract scale factors from ADAT header
+```R
+# Extract scale factors from ADAT header
   scale_factors <- adat_tbl %>%
     select(SampleType, HybControlNormScale, 
            MedianSignalNormScale, PlateScale_ReferenceNormScale) %>%
@@ -84,7 +86,7 @@ r  # Extract scale factors from ADAT header
       Plate_Pass = between(PlateScale_ReferenceNormScale, 0.4, 2.5),
       Overall_Pass = Hyb_Pass & Median_Pass & Plate_Pass
     )
-
+```
 Action: Samples with scale factors outside 0.4-2.5 indicate potential technical issues (e.g., pipetting errors, sample degradation)
 
 Calibrator Signal in Tails (Section 5.2):
@@ -103,7 +105,8 @@ FAIL: ≥15% of analytes in tails
 In the app: Compares each calibrator sample's protein measurements against expected reference values and computes tail percentages
 Code snippet:
 
-r  # Calculate signal ratios for calibrator samples
+```R
+# Calculate signal ratios for calibrator samples
   calibrator_data <- adat_tbl %>%
     filter(SampleType == "Calibrator") %>%
     select(PlateId, SampleId, starts_with("seq."))
@@ -123,6 +126,7 @@ r  # Calculate signal ratios for calibrator samples
       Pass = total_in_tails < 15  # PASS if <15% in tails
     )
 
+```
 Action: High tail percentages suggest systematic bias or assay drift
 
 Calibrator Precision per Plate (Section 5.4):
@@ -155,8 +159,8 @@ FAIL: Median CV > 10% or 90th percentile CV > 15%
 
 In the app: The safe_cv() function computes CV for each protein, then quantile() calculates the 10%, 50%, 90% percentiles
 Code snippet:
-
-r  # Define CV calculation function
+```R
+# Define CV calculation function
   safe_cv <- function(x) {
     m <- mean(x, na.rm = TRUE)
     s <- sd(x, na.rm = TRUE)
@@ -184,7 +188,7 @@ r  # Define CV calculation function
     mutate(
       Pass = `50%` <= 6 & `90%` <= 12  # Example thresholds
     )
-
+```
 Action: High CV values indicate poor replicate reproducibility, suggesting technical problems with the plate
 
 Plate-Level Quality Trends (Levey-Jennings Plots, Sections 5.4.1 & 5.5.1):
@@ -210,7 +214,8 @@ Classify each plate into QC zones:
 In the app: The plot_levey() function implements this calculation using historical reference data
 Code snippet:
 
-r  # Calculate reference statistics from historical data
+```R
+# Calculate reference statistics from historical data
   ref_center <- median(df_cvs_all$`50%`, na.rm = TRUE)
   ref_sd <- sd(df_cvs_all$`50%`, na.rm = TRUE)
   
@@ -236,7 +241,7 @@ r  # Calculate reference statistics from historical data
     sd_levels = c(1, 2, 3),
     show_zones = TRUE
   )
-
+```
 Action: Follow Westgard rules - consecutive violations or trends indicate systematic problems
 
 Overall Quality Metrics:
@@ -252,8 +257,8 @@ FAIL: <85% of proteins within range
 
 
 Code snippet:
-
-r  # Calculate QC ratios
+```R
+# Calculate QC ratios
   qc_ratios <- adat_tbl %>%
     filter(SampleType == "QC") %>%
     select(starts_with("seq.")) %>%
@@ -269,7 +274,10 @@ r  # Calculate QC ratios
       ) * 100,
       Pass = pct_in_range >= 85
     )
+```
+
 These thresholds follow both clinical laboratory QC standards (Westgard rules) and technical specifications for the platform.
+
 ---
 
 ## Features
