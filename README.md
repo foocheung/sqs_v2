@@ -40,7 +40,7 @@ A full example HTML report:
 
 The application uses the following acceptance criteria aligned with existing specifications.
 
-> **Important:** None of the QC values described below are calculated by this app. Every column — `RowCheck`, `NormScale_*`, `ANMLFractionUsed_*`, `HybControlNormScale`, plate scale factors, and calibrator tail percentages — is produced by SomaLogic's proprietary processing pipeline and written into the `.adat` file before it reaches you. The app reads, evaluates, and visualises these pre-computed values. The only metrics the app calculates itself are the CV statistics and Levey-Jennings plots, derived from the raw `seq.*` protein signal columns.
+> **Important:** Every column — `RowCheck`, `NormScale_*`, `ANMLFractionUsed_*`, `HybControlNormScale`, plate scale factors, and calibrator tail percentages — is already written into the `.adat` file by SomaLogic's processing pipeline before the data reaches you. This app reads, evaluates, and visualises these pre-computed values, applying acceptance criteria to flag samples or plates that fall outside expected ranges. The only metrics the app calculates itself are the CV statistics and Levey-Jennings plots, which are derived fresh from the raw `seq.*` protein signal columns on each run. This design means the app is fully consistent with SomaLogic's own QC outputs — it does not reinterpret or recompute the normalization, it surfaces and contextualises what SomaLogic has already determined.
 
 ---
 
