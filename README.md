@@ -6,6 +6,12 @@
 
 ---
 
+## Demo
+
+Try the app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
+
+---
+
 ## Video Tutorial - Step by Step Guide
 
 Watch this comprehensive video tutorial to learn how to use the SQS application:
@@ -34,6 +40,138 @@ A full example HTML report:
 
 ---
 
+## Features
+
+### Data Input
+
+- Upload SomaScan `.adat` files directly through the web interface
+- Load built-in example data for exploration without your own files
+- Upload your own historical reference data (Excel format) for Levey-Jennings comparison
+- Handles large multi-plate files up to 500 MB
+
+### Quality Control
+
+- **Sample-Level Flags:** Surfaces pre-computed `RowCheck` flags assigned by SomaLogic's pipeline, displaying flagged samples per plate
+- **Normalization Scale Factors:** Evaluates `NormScale_0_005`, `NormScale_0_5`, and `NormScale_20` against the 0.4-2.5 acceptance range across all three dilution groups
+- **ANML Fraction Used:** Evaluates `ANMLFractionUsed_0_005`, `ANMLFractionUsed_0_5`, and `ANMLFractionUsed_20` against the >= 0.3 threshold
+- **Plate Scale Factors:** Extracts `PlateScale_Scalar_*` and `PlateScale_PassFlag_*` from the `.adat` header metadata
+- **Calibrator Signal in Tails:** Reads `CalPlateTailPercent_*` and `CalPlateTailTest_*` from the header metadata (acceptance: < 10%)
+- **Protein Targets in Tails:** Tallies `ColCheck` flags from column metadata (acceptance: signal ratio 0.8-1.2)
+- **Calibrator CV per Plate:** Calculated by the app from raw `seq.*` signal columns — 10th, 50th, and 90th percentile CV across all proteins per plate
+- **Reference Material CV:** Calculated by the app across all QC samples in the file, reported with QC lot number
+
+### Visualizations
+
+- **Interactive PCA plots** via plotly, colorable by SampleType, PlateId, AssayNotes, SampleNotes, TimePoint, or SampleGroup
+- **PCA by RowCheck status** to visualize flagged sample separation
+- **Levey-Jennings plots** with color-coded QC zones (±1, ±2, ±3 SD) for both Calibrator and QC sample types, plotted against user-provided historical reference data
+- **KS test tables** comparing current run CV distribution against historical reference
+
+### Data Export
+
+**Protein Abundance Matrix**
+
+Export the quantitative protein signal data for downstream analysis with full control over the output:
+
+- Formats: CSV, TSV, Excel (.xlsx), RDS
+- Orientation: samples as rows or samples as columns
+- Optional sample metadata columns: PlateId, SampleId, SampleType, Barcode, or all metadata
+- Optional log2 transformation
+
+**Protein Annotation Table**
+
+Export the protein identifier mapping table extracted from the `.adat` column metadata:
+
+- Formats: CSV, TSV, Excel (.xlsx), JSON
+- Configurable annotation columns: SeqId, Target, TargetFullName, UniProt, EntrezGeneID, EntrezGeneSymbol, Organism, Type, Dilution, ColCheck
+
+### Automated Reporting
+
+- Generates self-contained HTML reports including all QC tables, PCA plots, Levey-Jennings charts, and CV statistics
+- Reports are downloadable and suitable for sharing, archiving, or regulatory documentation
+- Save directly to a local folder from within the app
+
+### Batch Processing
+
+- Command-line workflow for automated processing of multiple `.adat` files
+- Generates individual HTML reports per file
+- Produces a summary CSV and optional Excel file across all processed files
+- Uses user-provided historical reference data for consistent Levey-Jennings comparison
+
+---
+
+## Installation
+
+### Prerequisites
+
+- R (>= 4.0.0)
+- Dependencies: `shiny`, `shinythemes`, `shinycssloaders`, `SomaDataIO`, `tidyverse`, `plotly`, `rmarkdown`, `kableExtra`, `DT`, `arrow`, `knitr`, `forcats`, `broom`
+
+Install `sqs` and its dependencies from GitHub:
+
+```r
+# Install devtools if not already installed
+install.packages("devtools")
+
+# Install sqs
+devtools::install_github("foocheung/sqs_v2")
+```
+
+---
+
+## Quick Start
+
+### Launch the Application
+
+```r
+library(sqs)
+run_app()
+```
+
+### Workflow Overview
+
+**Step 1: Upload Data**
+
+- Click "Browse" to upload your SomaScan `.adat` file
+- Optionally upload historical reference data (Excel format)
+
+**Step 2: Explore QC Metrics**
+
+- Navigate the tabbed interface to review each QC section
+- Use interactive PCA plots to check sample clustering and flag separation
+- Review normalization scale factors, ANML fractions, plate scale factors, and calibrator metrics
+
+**Step 3: Generate QC Report**
+
+- Click "Generate HTML Report" to produce a full report
+- View progress indicators and status updates
+- Reports include all QC tables, plots, and metadata
+
+**Step 4: Export Data**
+
+- Use the Data Export tab to download the protein abundance matrix in your preferred format
+- Download the protein annotation table with identifiers mapped to UniProt, Entrez, and other fields
+
+**Step 5: Review and Save**
+
+- Preview the report in the "Report Preview" tab
+- Download as self-contained HTML
+- Save to a local folder for archival
+
+> **Tip:** Watch the [video tutorial](#video-tutorial---step-by-step-guide) above for a complete walkthrough!
+
+---
+
+## Performance
+
+| Metric | Value |
+|--------|-------|
+| Benchmark | 113.2 seconds for 15 plates on Mac M1 (64 GB, macOS 14.7.6) |
+| Max file size | Up to 500 MB |
+| Batch processing | Automated processing of multiple datasets with individual reports |
+
+---
+
 ## Quality Control Interpretation Guide
 
 ### QC Pass/Fail Thresholds
@@ -53,12 +191,10 @@ Samples with `RowCheck = "FLAG"` are automatically identified during SomaScan pr
 The `RowCheck` flag is assigned by SomaLogic's internal QC algorithms during `.adat` file generation. The app extracts flagged samples directly from the `RowCheck` column and displays them.
 
 ```r
-# Extract flagged samples from ADAT file
 flagged_samples <- adat_tbl %>%
   filter(RowCheck == "FLAG") %>%
   select(PlateId, SampleId, SampleType, RowCheck)
 
-# Count flagged samples
 n_flagged <- nrow(flagged_samples)
 ```
 
@@ -272,6 +408,39 @@ df_cvs <- adat_tbl %>%
 
 ---
 
+### Section 5.5 - Reference Material Precision
+
+Reports the overall CV distribution across all QC samples in the file, grouped by QC lot number.
+
+**How it's calculated:**
+
+Unlike Section 5.4 which is per plate, this is calculated across all QC samples in the entire file at once. The `Barcode` column from QC rows is used as the lot identifier.
+
+```r
+df_cvs_qc <- adat_tbl %>%
+  filter(SampleType == "QC") %>%
+  select(starts_with("seq.")) %>%
+  summarise_if(is.numeric, function(x) sd(x) / mean(x)) %>%
+  tidyr::gather(key = "SeqId", value = "CV") %>%
+  summarise(
+    `10%` = round(quantile(CV, 0.1) * 100, 1),
+    `50%` = round(median(CV) * 100, 1),
+    `90%` = round(quantile(CV, 0.9) * 100, 1)
+  )
+
+qc_cv_summary <- adat_tbl %>%
+  filter(SampleType == "QC") %>%
+  select(Barcode) %>%
+  mutate(nSamples = n()) %>%
+  unique() %>%
+  bind_cols(df_cvs_qc) %>%
+  rename(`QC Lot` = Barcode)
+```
+
+**Action:** Compare the 50th percentile CV here against the per-plate calibrator CVs in Section 5.4. A notably higher value here suggests between-plate variability rather than within-plate noise.
+
+---
+
 ### Sections 5.4.1 and 5.5.1 - Plate-Level Quality Trends (Levey-Jennings Plots)
 
 | Zone | Range | Status |
@@ -336,17 +505,6 @@ plot_levey(
 
 ---
 
-## Features
-
-### Data Management
-
-- **Flexible Data Input:** Upload SomaScan `.adat` files directly through the web interface
-- **Custom Reference Data:** Upload your own historical plate controls and calibrator data for comparison
-- **Large File Support:** Handles large multi-plate files with optimized performance
-- **Batch File Support:** Process multiple `.adat` files in one run using custom reference data, generating individual reports and summary statistics
-
----
-
 ## What's New in Version 2.0
 
 - **Batch File Support:** Automated processing of multiple `.adat` files with user-provided historical reference data and individual HTML reports
@@ -400,62 +558,6 @@ plot_levey(
 
 ---
 
-## Installation
-
-### Prerequisites
-
-- R (>= 4.0.0)
-- Dependencies: `shiny`, `shinythemes`, `shinycssloaders`, `SomaDataIO`, `tidyverse`, `plotly`, `rmarkdown`, `kableExtra`, `DT`, `arrow`, `knitr`, `forcats`, `broom`
-
-Install `sqs` and its dependencies from GitHub:
-
-```r
-# Install devtools if not already installed
-install.packages("devtools")
-
-# Install sqs
-devtools::install_github("foocheung/sqs_v2")
-```
-
----
-
-## Quick Start
-
-### Launch the Application
-
-```r
-library(sqs)
-run_app()
-```
-
-### Workflow Overview
-
-**Step 1: Upload Data**
-
-- Click "Browse" to upload your SomaScan `.adat` file
-- Optionally upload historical reference data (CSV/RDS format)
-
-**Step 2: Generate QC Report**
-
-- Click "Generate HTML Report" to analyze data
-- View progress indicators and status updates
-- Reports include:
-  - Sample summary tables
-  - PCA plots for sample clustering
-  - Enhanced Levey-Jennings charts with QC zones
-  - CV distribution analysis
-  - Quality control metrics and flags
-
-**Step 3: Review and Export**
-
-- Preview the report in the "Report Preview" tab
-- Download as self-contained HTML
-- Save to a local folder for archival
-
-> **Tip:** Watch the [video tutorial](#video-tutorial--step-by-step-guide) above for a complete walkthrough!
-
----
-
 ## Using Custom Reference Data
 
 You can provide your own historical reference data for Levey-Jennings plots:
@@ -476,22 +578,6 @@ reference_data <- data.frame(
 # Upload through the app interface
 # The app will automatically use your reference data for comparison
 ```
-
----
-
-## Performance
-
-| Metric | Value |
-|--------|-------|
-| Benchmark | 113.2 seconds for 15 plates on Mac M1 (64 GB, macOS 14.7.6) |
-| Max file size | Up to 500 MB |
-| Batch processing | Automated processing of multiple datasets with individual reports |
-
----
-
-## Demo
-
-Try the app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
 
 ---
 
@@ -526,299 +612,24 @@ library(rmarkdown)
 library(readxl)
 source("./R/global.R")
 
-# ==============================================================================
-# Setup: Define paths and load reference data
-# ==============================================================================
-
 # Directory containing .adat files
 adat_dir <- "path/to/your/adat/files"
 
-# Load reference data from synthetic_data.xlsx
-message("Loading reference data from synthetic_data.xlsx...")
+# Load reference data
 df_cvs_all <- readxl::read_excel("inst/data/synthetic_data.xlsx")
-
-# Fix column names - remove escaped backticks if present
 names(df_cvs_all) <- gsub("^`|`$", "", names(df_cvs_all))
-
-# Convert ExpDate to Date class to match what global.R expects
 df_cvs_all <- df_cvs_all %>%
   dplyr::mutate(ExpDate = as.Date(ExpDate))
 
-# Verify required columns exist
-required_cols <- c("ExpDate", "PlateId", "SampleType", "10%", "50%", "90%")
-missing_cols  <- required_cols[!required_cols %in% names(df_cvs_all)]
-if (length(missing_cols) > 0) {
-  cat("Available columns:", paste(names(df_cvs_all), collapse = ", "), "\n")
-  stop("synthetic_data.xlsx is missing required columns: ",
-       paste(missing_cols, collapse = ", "))
-}
-
-message("Reference data loaded: ", nrow(df_cvs_all), " historical plates")
-
-# Output directory for reports
+# Output directory
 output_dir <- "batch_qc_reports"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-# ==============================================================================
-# Batch Processing Function
-# ==============================================================================
-
-process_adat_file <- function(file, df_cvs_all, output_dir) {
-
-  message(paste("Processing:", basename(file)))
-
-  tryCatch({
-    adat        <- SomaDataIO::read_adat(file)
-    adat_tbl    <- adat
-    adat_header <- attributes(adat)
-
-    exp_date      <- as.character(adat_header$Header.Meta$HEADER$ExpDate)
-    file_basename <- tools::file_path_sans_ext(basename(file))
-
-    timestamp   <- format(Sys.time(), "%Y%m%d_%H%M%S")
-    report_name <- paste0(file_basename, "_QC_Report_", timestamp, ".html")
-    report_path <- file.path(output_dir, report_name)
-
-    message("  - Generating QC plots...")
-
-    levey_qc <- plot_levey(
-      adat_tbl    = adat_tbl,
-      adat_header = adat_header,
-      df_cvs_all  = df_cvs_all,
-      sample_type = "QC",
-      sd_levels   = c(1, 2, 3),
-      show_zones  = TRUE
-    )
-
-    levey_cal <- plot_levey(
-      adat_tbl    = adat_tbl,
-      adat_header = adat_header,
-      df_cvs_all  = df_cvs_all,
-      sample_type = "Calibrator",
-      sd_levels   = c(1, 2, 3),
-      show_zones  = TRUE
-    )
-
-    pca_dat    <- adat_tbl %>% select(starts_with("seq."))
-    pca_res    <- prcomp(pca_dat, scale = TRUE)
-    pca_scores <- as.data.frame(pca_res$x)
-
-    plot_dat <- cbind(
-      adat_tbl[, c("SampleType", "PlateId", "SampleId")],
-      pca_scores
-    )
-
-    variance_pc1 <- round(pca_res$sdev[1]^2 / sum(pca_res$sdev^2) * 100, 2)
-    variance_pc2 <- round(pca_res$sdev[2]^2 / sum(pca_res$sdev^2) * 100, 2)
-
-    pca_plot <- ggplot2::ggplot(plot_dat,
-                                ggplot2::aes(x = PC1, y = PC2, color = SampleType)) +
-      ggplot2::geom_point(size = 2) +
-      ggplot2::labs(
-        x     = paste0("PC1 (", variance_pc1, "%)"),
-        y     = paste0("PC2 (", variance_pc2, "%)"),
-        title = "PCA by Sample Type"
-      ) +
-      ggplot2::theme_minimal()
-
-    message("  - Calculating QC metrics...")
-
-    sample_summary  <- table(adat_tbl$SampleType, adat_tbl$PlateId)
-
-    flagged_samples <- adat_tbl %>%
-      filter(RowCheck == "FLAG") %>%
-      select(PlateId, SampleId, SampleType)
-
-    df_cvs_cal <- adat_tbl %>%
-      filter(SampleType == "Calibrator") %>%
-      select(PlateId, starts_with("seq.")) %>%
-      group_by(PlateId) %>%
-      summarise(across(starts_with("seq."), safe_cv), .groups = "drop") %>%
-      tidyr::gather(key = "SeqId", value = "CV", -PlateId) %>%
-      filter(is.finite(CV)) %>%
-      group_by(PlateId) %>%
-      summarise(
-        `10%` = round(quantile(CV, 0.1, na.rm = TRUE) * 100, 1),
-        `50%` = round(median(CV, na.rm = TRUE) * 100, 1),
-        `90%` = round(quantile(CV, 0.9, na.rm = TRUE) * 100, 1),
-        .groups = "drop"
-      )
-
-    message("  - Rendering HTML report...")
-
-    rmd_content <- c(
-      '---',
-      paste0('title: "QC Report - ', file_basename, '"'),
-      paste0('date: "', Sys.Date(), '"'),
-      'output:',
-      '  html_document:',
-      '    toc: true',
-      '    toc_float: true',
-      '    theme: flatly',
-      '---',
-      '',
-      '```{r setup, include=FALSE}',
-      'knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)',
-      'library(knitr)',
-      'library(kableExtra)',
-      '```',
-      '',
-      '# Summary',
-      '',
-      paste0('**File:** ', basename(file), '  '),
-      paste0('**Experiment Date:** ', exp_date, '  '),
-      paste0('**Report Generated:** ', Sys.time(), '  '),
-      paste0('**Reference Data:** synthetic_data.xlsx (', nrow(df_cvs_all), ' historical plates)  '),
-      '',
-      '# Sample Counts',
-      '',
-      '```{r sample_counts}',
-      'kable(sample_summary, caption = "Sample Counts by Type and Plate") %>%',
-      '  kable_styling(bootstrap_options = c("striped", "hover"))',
-      '```',
-      '',
-      '# Flagged Samples',
-      '',
-      '```{r flagged_samples}',
-      'if (nrow(flagged_samples) == 0) {',
-      '  cat("No samples flagged during QC.")',
-      '} else {',
-      '  kable(flagged_samples, caption = "Flagged Samples") %>%',
-      '    kable_styling(bootstrap_options = c("striped", "hover"))',
-      '}',
-      '```',
-      '',
-      '# PCA Plot',
-      '',
-      '```{r pca_plot, fig.width=8, fig.height=6}',
-      'print(pca_plot)',
-      '```',
-      '',
-      '# Levey-Jennings: QC Samples',
-      '',
-      '```{r levey_qc, fig.width=10, fig.height=6}',
-      'print(levey_qc)',
-      '```',
-      '',
-      '# Levey-Jennings: Calibrators',
-      '',
-      '```{r levey_cal, fig.width=10, fig.height=6}',
-      'print(levey_cal)',
-      '```',
-      '',
-      '# Calibrator CV Statistics',
-      '',
-      '```{r cal_cvs}',
-      'kable(df_cvs_cal, caption = "Calibrator CV Quantiles by Plate") %>%',
-      '  kable_styling(bootstrap_options = c("striped", "hover"))',
-      '```'
-    )
-
-    temp_rmd <- tempfile(fileext = ".Rmd")
-    writeLines(rmd_content, temp_rmd)
-
-    if (!dir.exists(output_dir)) {
-      dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-    }
-
-    report_env <- new.env(parent = globalenv())
-    report_env$sample_summary  <- sample_summary
-    report_env$flagged_samples <- flagged_samples
-    report_env$pca_plot        <- pca_plot
-    report_env$levey_qc        <- levey_qc
-    report_env$levey_cal       <- levey_cal
-    report_env$df_cvs_cal      <- df_cvs_cal
-
-    rmarkdown::render(
-      input       = temp_rmd,
-      output_file = report_name,
-      output_dir  = output_dir,
-      envir       = report_env,
-      quiet       = TRUE
-    )
-
-    message("  Report saved: ", report_path)
-
-    return(list(
-      file        = basename(file),
-      exp_date    = exp_date,
-      report_path = report_path,
-      n_samples   = nrow(adat_tbl),
-      n_flagged   = nrow(flagged_samples),
-      n_plates    = length(unique(adat_tbl$PlateId)),
-      status      = "Success"
-    ))
-
-  }, error = function(e) {
-    message("  Error processing file: ", conditionMessage(e))
-    return(list(
-      file        = basename(file),
-      exp_date    = NA,
-      report_path = NA,
-      n_samples   = NA,
-      n_flagged   = NA,
-      n_plates    = NA,
-      status      = paste("Error:", conditionMessage(e))
-    ))
-  })
-}
-
-# ==============================================================================
-# Execute Batch Processing
-# ==============================================================================
-
+# Process all files
 adat_files <- list.files(adat_dir, pattern = "\\.adat$", full.names = TRUE)
-message(paste("\nFound", length(adat_files), ".adat files to process\n"))
-
 results <- lapply(adat_files, function(file) {
   process_adat_file(file, df_cvs_all, output_dir)
 })
-
-# ==============================================================================
-# Summarize Results
-# ==============================================================================
-
-results_df <- do.call(rbind, lapply(results, function(x) {
-  data.frame(
-    File     = x$file,
-    ExpDate  = x$exp_date,
-    Samples  = x$n_samples,
-    Flagged  = x$n_flagged,
-    Plates   = x$n_plates,
-    Status   = x$status,
-    Report   = basename(x$report_path),
-    stringsAsFactors = FALSE
-  )
-}))
-
-message("\n=== Batch Processing Summary ===")
-print(results_df)
-
-summary_file <- file.path(output_dir, paste0("batch_summary_",
-                           format(Sys.time(), "%Y%m%d_%H%M%S"), ".csv"))
-write.csv(results_df, summary_file, row.names = FALSE)
-message("\nSummary saved to: ", summary_file)
-
-n_success <- sum(results_df$Status == "Success")
-n_failed  <- sum(results_df$Status != "Success")
-
-message("\n", n_success, " files processed successfully")
-if (n_failed > 0) {
-  message(n_failed, " files failed - see summary for details")
-}
-
-message("\nAll reports saved to: ", output_dir)
-
-# ==============================================================================
-# Optional: Export summary statistics to Excel
-# ==============================================================================
-
-if (requireNamespace("writexl", quietly = TRUE)) {
-  summary_excel <- file.path(output_dir, paste0("batch_summary_",
-                              format(Sys.time(), "%Y%m%d_%H%M%S"), ".xlsx"))
-  writexl::write_xlsx(results_df, summary_excel)
-  message("Excel summary saved to: ", summary_excel)
-}
 ```
 
 ---
@@ -848,7 +659,7 @@ options(shiny.maxRequestSize = 1000 * 1024^2)  # 1 GB
 
 - Ensure reference data includes: `ExpDate`, `PlateId`, `SampleType`, and CV quantile columns
 - Column names must match exactly: `"10%"`, `"50%"`, `"90%"`
-- Save as RDS or CSV format
+- Save as Excel format
 
 ---
 
@@ -887,7 +698,7 @@ When reporting issues, please include:
 - Developed by Foo Cheung ([ORCID: add-orcid])
 - Built with the [Golem](https://thinkr-open.github.io/golem/) framework
 - Uses [SomaDataIO](https://somalogic.github.io/SomaDataIO/) for data handling
-- Enhanced visualizations powered by [ggplot2](https://ggplot2.tidyverse.org/)
+- Enhanced visualizations powered by [ggplot2](https://ggplot2.tidyverse.org/) and [plotly](https://plotly.com/r/)
 - Statistical process control concepts based on [Westgard QC guidelines](https://www.westgard.com/)
 
 ---
