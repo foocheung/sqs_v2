@@ -68,36 +68,31 @@ n_flagged <- nrow(flagged_samples)
 
 | Result | Criteria |
 |--------|----------|
-| PASS | Scale factors between **0.4 and 2.5** |
-| FAIL | Scale factors outside this range |
+| PASS | Scale factors between **0.4 and 2.5** (inclusive) |
+| FLAG | Scale factors outside this range |
 
-Applies to: Buffer, Calibrator, Plate, and Sample scale factors.
+Applies to Sample-type rows across all three SomaScan dilution groups.
 
 **How it's calculated:**
 
-Scale factors are computed during SomaScan normalization to adjust for technical variation:
-
-- **Hybridization Normalization:** Corrects for differences in hybridization efficiency using median signal from hybridization controls
-- **Median Signal Normalization:** Adjusts each sample to a common median signal level across all proteins
-- **Plate Scale Factor:** Normalizes plate-to-plate variation using calibrator samples
-- **Formula:** `Scale Factor = Target Value / Observed Value`
-- **Target range (0.4-2.5)** represents acceptable biological and technical variation
+SomaScan measures proteins across three dilution groups (0.005%, 0.5%, and 20%). Each dilution group has its own normalization scale factor stored as a pre-computed column in the `.adat` file. The app reads these columns directly and applies the 0.4-2.5 acceptance criteria. Results are summarised as Pass/Flag counts per dilution group across all Sample-type rows.
 
 ```r
-# Extract scale factors from ADAT header
-scale_factors <- adat_tbl %>%
-  select(SampleType, HybControlNormScale,
-         MedianSignalNormScale, PlateScale_ReferenceNormScale) %>%
-  distinct()
+df_norm_scale <- adat_tbl %>%
+  select(PlateId, SampleId, SampleType,
+         NormScale_0_005, NormScale_0_5, NormScale_20) %>%
+  filter(SampleType == "Sample") %>%
+  mutate(across(starts_with("NormScale"),
+                ~ifelse(. >= 0.4 & . <= 2.5, "Pass", "Flag")))
 
-# Check if scale factors are within acceptable range (0.4 - 2.5)
-scale_factors <- scale_factors %>%
-  mutate(
-    Hyb_Pass     = between(HybControlNormScale, 0.4, 2.5),
-    Median_Pass  = between(MedianSignalNormScale, 0.4, 2.5),
-    Plate_Pass   = between(PlateScale_ReferenceNormScale, 0.4, 2.5),
-    Overall_Pass = Hyb_Pass & Median_Pass & Plate_Pass
-  )
+df_norm_scale %>%
+  select(NormScale_0_005, NormScale_0_5, NormScale_20) %>%
+  tidyr::gather(key = "Dilution Group", value = "Decision") %>%
+  filter(Decision == "Pass") %>%
+  group_by(`Dilution Group`) %>%
+  summarise(Pass = n()) %>%
+  mutate(Flag  = total_samples - Pass,
+         Total = total_samples)
 ```
 
 **Action:** Samples with scale factors outside 0.4-2.5 indicate potential technical issues (e.g., pipetting errors, sample degradation).
@@ -106,39 +101,40 @@ scale_factors <- scale_factors %>%
 
 ### Section 5.2 — Calibrator Signal in Tails
 
-Monitors the percentage of analytes in upper/lower distribution tails.
-
-**How it's calculated:**
-
-1. For each calibrator sample, calculate the ratio: `Signal Ratio = Observed Signal / Expected Signal`
-2. Determine acceptance criteria (typically 0.8-1.2, or +/-20% from expected)
-3. Count percentage of proteins falling below the lower threshold (lower tail)
-4. Count percentage of proteins falling above the upper threshold (upper tail)
+Monitors the percentage of analytes in the upper and lower distribution tails for each calibrator plate.
 
 | Result | Criteria |
 |--------|----------|
-| PASS | < 15% of analytes in tails (i.e., >= 85% within acceptance range) |
-| FAIL | >= 15% of analytes in tails |
+| PASS | < 10% of analytes in tails |
+| FAIL | >= 10% of analytes in tails |
+
+**How it's calculated:**
+
+The tail percentage and pass/fail verdict are pre-computed by SomaLogic's pipeline and stored in the `.adat` header metadata under keys `CalPlateTailPercent_*` and `CalPlateTailTest_*`. The app reads these directly from the header rather than recalculating from raw signal data.
 
 ```r
-# Calculate signal ratios for calibrator samples
-calibrator_data <- adat_tbl %>%
-  filter(SampleType == "Calibrator") %>%
-  select(PlateId, SampleId, starts_with("seq."))
+adat_header <- attributes(adat)
+keys        <- names(adat_header$Header.Meta$HEADER)
 
-# For each calibrator, calculate ratio to expected reference
-signal_ratios <- calibrator_data %>%
-  mutate(across(starts_with("seq."), ~ .x / expected_reference_value))
+# Extract tail percentages
+perc_keys <- keys[grep("^CalPlateTailPercent", keys)]
+df_cal_perc_value <- data.frame(
+  Value = unlist(adat_header$Header.Meta$HEADER[perc_keys])
+) %>%
+  tibble::rownames_to_column(var = "Plate") %>%
+  mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
 
-# Calculate tail percentages
-tail_stats <- signal_ratios %>%
-  group_by(PlateId) %>%
-  summarise(
-    lower_tail     = mean(. < 0.8, na.rm = TRUE) * 100,
-    upper_tail     = mean(. > 1.2, na.rm = TRUE) * 100,
-    total_in_tails = lower_tail + upper_tail,
-    Pass           = total_in_tails < 15
-  )
+# Extract pass/fail flags
+test_keys <- keys[grep("^CalPlateTailTest", keys)]
+df_cal_perc_test <- data.frame(
+  `Plate Check` = unlist(adat_header$Header.Meta$HEADER[test_keys])
+) %>%
+  tibble::rownames_to_column(var = "Plate") %>%
+  mutate(Plate = sub("^CalPlateTailTest_", "", Plate))
+
+df_cal_perc_tails <- inner_join(df_cal_perc_test, df_cal_perc_value, by = "Plate") %>%
+  mutate(`Acceptance Criteria` = "Less than 10%",
+         Value = round(as.numeric(Value), 2))
 ```
 
 **Action:** High tail percentages suggest systematic bias or assay drift.
