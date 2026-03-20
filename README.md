@@ -40,6 +40,8 @@ A full example HTML report:
 
 The application uses the following acceptance criteria aligned with existing specifications.
 
+> **Important:** None of the QC values described below are calculated by this app. Every column — `RowCheck`, `NormScale_*`, `ANMLFractionUsed_*`, `HybControlNormScale`, plate scale factors, and calibrator tail percentages — is produced by SomaLogic's proprietary processing pipeline and written into the `.adat` file before it reaches you. The app reads, evaluates, and visualises these pre-computed values. The only metrics the app calculates itself are the CV statistics and Levey-Jennings plots, derived from the raw `seq.*` protein signal columns.
+
 ---
 
 ### Section 4.1 — Sample-Level QC (RowCheck Flag)
@@ -48,7 +50,7 @@ Samples with `RowCheck = "FLAG"` are automatically identified during SomaScan pr
 
 **How it's calculated:**
 
-The RowCheck flag is assigned by SomaLogic's internal QC algorithms during `.adat` file generation. Flagged samples are extracted directly from the `RowCheck` column in the `.adat` file and displayed in Section 4.1.
+The `RowCheck` flag is assigned by SomaLogic's internal QC algorithms during `.adat` file generation. The app extracts flagged samples directly from the `RowCheck` column and displays them.
 
 ```r
 # Extract flagged samples from ADAT file
@@ -75,7 +77,9 @@ Applies to Sample-type rows across all three SomaScan dilution groups.
 
 **How it's calculated:**
 
-SomaScan measures proteins across three dilution groups (0.005%, 0.5%, and 20%). Each dilution group has its own normalization scale factor stored as a pre-computed column in the `.adat` file. The app reads these columns directly and applies the 0.4-2.5 acceptance criteria. Results are summarised as Pass/Flag counts per dilution group across all Sample-type rows.
+`NormScale_0_005`, `NormScale_0_5`, and `NormScale_20` are pre-computed by SomaLogic's normalization pipeline and stored as per-sample columns in the `.adat` file, one per dilution group (0.005%, 0.5%, 20%). These represent the final normalization scale factors after all corrections — including hybridization control normalization, median signal normalization, and plate scaling — have already been applied internally. The app reads these columns directly and applies the 0.4-2.5 acceptance criteria, summarising results as Pass/Flag counts per dilution group across all Sample-type rows.
+
+`HybControlNormScale` is also present as a pre-computed per-sample column reflecting the hybridization efficiency correction applied early in SomaLogic's pipeline. It is available in the data but is not currently evaluated in the app's QC calculations.
 
 ```r
 df_norm_scale <- adat_tbl %>%
@@ -83,7 +87,7 @@ df_norm_scale <- adat_tbl %>%
          NormScale_0_005, NormScale_0_5, NormScale_20) %>%
   filter(SampleType == "Sample") %>%
   mutate(across(starts_with("NormScale"),
-                ~ifelse(. >= 0.4 & . <= 2.5, "Pass", "Flag")))
+                ~ifelse(. < 0.4 | . > 2.5, "Flag", "Pass")))
 
 df_norm_scale %>%
   select(NormScale_0_005, NormScale_0_5, NormScale_20) %>%
@@ -99,9 +103,70 @@ df_norm_scale %>%
 
 ---
 
-### Section 5.2 — Calibrator Signal in Tails
+### Section 4.3 — ANML Fraction Used
 
-Monitors the percentage of analytes in the upper and lower distribution tails for each calibrator plate.
+| Result | Criteria |
+|--------|----------|
+| PASS | ANML fraction >= 0.3 |
+| FLAG | ANML fraction < 0.3 |
+
+Applies to all three dilution groups across Sample-type rows.
+
+**How it's calculated:**
+
+`ANMLFractionUsed_0_005`, `ANMLFractionUsed_0_5`, and `ANMLFractionUsed_20` are pre-computed by SomaLogic and stored as per-sample columns in the `.adat` file. Each records what fraction of protein targets were used in the Adaptive Normalization by Maximum Likelihood (ANML) step for that dilution group. Low values indicate fewer proteins were informative during normalization, which may reflect sample quality issues. The app reads these columns directly and flags values below 0.3.
+
+```r
+df_anml_fraction <- adat_tbl %>%
+  select(PlateId, SampleId, SampleType,
+         ANMLFractionUsed_0_005, ANMLFractionUsed_0_5, ANMLFractionUsed_20) %>%
+  filter(SampleType == "Sample") %>%
+  mutate(across(starts_with("ANMLFractionUsed"),
+                ~ifelse(. < 0.3, "Flag", "Pass")))
+```
+
+**Action:** Low ANML fraction values may indicate poor sample quality or assay performance for that dilution group.
+
+---
+
+### Section 5.1 — Plate Scale Factors
+
+| Result | Criteria |
+|--------|----------|
+| PASS | Plate scale factor between **0.4 and 2.5** |
+| FAIL | Plate scale factor outside this range |
+
+**How it's calculated:**
+
+Plate scale factors are pre-computed by SomaLogic's pipeline and stored in the `.adat` header metadata — not as row-level columns. The app extracts them by scanning header keys matching `PlateScale_Scalar_*` and `PlateScale_PassFlag_*`.
+
+```r
+adat_header <- attributes(adat)
+keys        <- names(adat_header$Header.Meta$HEADER)
+
+scalar_keys <- keys[grep("^PlateScale_Scalar", keys)]
+df_plate_scale_value <- data.frame(
+  Value = unlist(adat_header$Header.Meta$HEADER[scalar_keys])
+) %>%
+  tibble::rownames_to_column(var = "Plate") %>%
+  mutate(Plate = sub("^PlateScale_Scalar_", "", Plate))
+
+pass_keys <- keys[grep("^PlateScale_PassFlag", keys)]
+df_plate_scale_pass <- data.frame(
+  `Plate Check` = unlist(adat_header$Header.Meta$HEADER[pass_keys])
+) %>%
+  tibble::rownames_to_column(var = "Plate") %>%
+  mutate(Plate = sub("^PlateScale_PassFlag_", "", Plate))
+
+df_plate_scale <- inner_join(df_plate_scale_pass, df_plate_scale_value, by = "Plate") %>%
+  mutate(Value = round(as.numeric(Value), 2))
+```
+
+**Action:** Plate scale factors outside 0.4-2.5 indicate plate-level technical issues requiring investigation.
+
+---
+
+### Section 5.2 — Calibrator Signal in Tails
 
 | Result | Criteria |
 |--------|----------|
@@ -116,7 +181,6 @@ The tail percentage and pass/fail verdict are pre-computed by SomaLogic's pipeli
 adat_header <- attributes(adat)
 keys        <- names(adat_header$Header.Meta$HEADER)
 
-# Extract tail percentages
 perc_keys <- keys[grep("^CalPlateTailPercent", keys)]
 df_cal_perc_value <- data.frame(
   Value = unlist(adat_header$Header.Meta$HEADER[perc_keys])
@@ -124,7 +188,6 @@ df_cal_perc_value <- data.frame(
   tibble::rownames_to_column(var = "Plate") %>%
   mutate(Plate = sub("^CalPlateTailPercent_", "", Plate))
 
-# Extract pass/fail flags
 test_keys <- keys[grep("^CalPlateTailTest", keys)]
 df_cal_perc_test <- data.frame(
   `Plate Check` = unlist(adat_header$Header.Meta$HEADER[test_keys])
@@ -141,30 +204,48 @@ df_cal_perc_tails <- inner_join(df_cal_perc_test, df_cal_perc_value, by = "Plate
 
 ---
 
+### Section 5.3 — Protein Targets in Tails (ColCheck)
+
+| Result | Criteria |
+|--------|----------|
+| PASS | Signal ratio between **0.8 and 1.2** |
+| FLAG | Signal ratio outside this range |
+
+**How it's calculated:**
+
+The per-protein pass/fail status is pre-computed by SomaLogic and stored in the `ColCheck` field of the `.adat` column metadata. The app tallies `PASS` and `FLAG` counts across all proteins.
+
+```r
+df_SOMAmers_tails <- data.frame(
+  SeqId            = adat_header$Col.Meta$SeqId,
+  EntrezGeneSymbol = adat_header$Col.Meta$EntrezGeneSymbol,
+  Organism         = adat_header$Col.Meta$Organism,
+  ColCheck         = adat_header$Col.Meta$ColCheck
+)
+
+table(df_SOMAmers_tails$ColCheck)
+```
+
+**Action:** A high FLAG count indicates widespread calibration inaccuracy across the protein panel.
+
+---
+
 ### Section 5.4 — Calibrator Precision per Plate
 
 Reports the 10th, 50th (median), and 90th percentile CV values.
 
 **How it's calculated:**
 
+This is one of the metrics the app calculates itself from the raw `seq.*` protein signal columns. For each plate, CV is computed across calibrator replicates for every protein, then summarised as percentiles.
+
 1. For each plate, identify all calibrator samples (typically 3-6 replicates per plate)
 2. For each protein (`seq.*` column), calculate CV across calibrator replicates: `CV = (Standard Deviation / Mean) x 100%`
-3. Across all ~7,000 proteins, calculate percentiles:
+3. Across all proteins, calculate percentiles:
    - **10th percentile:** 10% of proteins have CV below this value (best precision)
    - **50th percentile (Median):** Middle value — typical precision for the plate
    - **90th percentile:** 90% of proteins have CV below this value (acceptable upper limit)
 
-**PASS thresholds (typical):**
-
-| Percentile | Threshold |
-|------------|-----------|
-| 10th percentile CV | < 4% |
-| 50th percentile CV | < 5-6% |
-| 90th percentile CV | < 10-12% |
-| FAIL condition | Median CV > 10% or 90th percentile CV > 15% |
-
 ```r
-# Define CV calculation function
 safe_cv <- function(x) {
   m <- mean(x, na.rm = TRUE)
   s <- sd(x, na.rm = TRUE)
@@ -172,25 +253,18 @@ safe_cv <- function(x) {
   s / m
 }
 
-# Calculate CV per plate for calibrator samples
-df_cvs_per_plate <- adat_tbl %>%
+df_cvs <- adat_tbl %>%
   filter(SampleType == "Calibrator") %>%
   select(PlateId, starts_with("seq.")) %>%
   group_by(PlateId) %>%
-  summarise(across(starts_with("seq."), safe_cv), .groups = "drop")
-
-# Calculate CV quantiles (10%, 50%, 90%) across all proteins
-df_cvs_quantiles <- df_cvs_per_plate %>%
-  pivot_longer(-PlateId, names_to = "SeqId", values_to = "CV") %>%
+  summarise_if(is.numeric, function(x) sd(x) / mean(x)) %>%
+  ungroup() %>%
+  tidyr::gather(key = "SeqId", value = "CV", -PlateId) %>%
   group_by(PlateId) %>%
   summarise(
-    `10%` = round(quantile(CV, 0.10, na.rm = TRUE) * 100, 1),
-    `50%` = round(median(CV, na.rm = TRUE) * 100, 1),
-    `90%` = round(quantile(CV, 0.90, na.rm = TRUE) * 100, 1),
-    .groups = "drop"
-  ) %>%
-  mutate(
-    Pass = `50%` <= 6 & `90%` <= 12
+    `10%` = round(quantile(CV, 0.1) * 100, 1),
+    `50%` = round(median(CV) * 100, 1),
+    `90%` = round(quantile(CV, 0.9) * 100, 1)
   )
 ```
 
@@ -209,6 +283,8 @@ df_cvs_quantiles <- df_cvs_per_plate %>%
 
 **How it's calculated:**
 
+This is also calculated by the app itself. The per-plate median CV (50th percentile) computed in Section 5.4 is plotted against a historical reference distribution to classify each plate into QC zones.
+
 1. Calculate median CV (50th percentile) for each historical plate in reference data
 2. Compute reference center: `median(historical median CVs)` or `mean(historical median CVs)`
 3. Compute reference standard deviation: `SD(historical median CVs)`
@@ -220,11 +296,9 @@ df_cvs_quantiles <- df_cvs_per_plate %>%
    - `|deviation| > 3xSD` → Out of control (fail)
 
 ```r
-# Calculate reference statistics from historical data
 ref_center <- median(df_cvs_all$`50%`, na.rm = TRUE)
 ref_sd     <- sd(df_cvs_all$`50%`, na.rm = TRUE)
 
-# Classify current plates into QC zones
 current_plates <- df_cvs_quantiles %>%
   mutate(
     deviation = abs(`50%` - ref_center),
@@ -237,7 +311,6 @@ current_plates <- df_cvs_quantiles %>%
     Pass = deviation <= 3 * ref_sd
   )
 
-# Create Levey-Jennings plot
 plot_levey(
   adat_tbl    = adat_tbl,
   adat_header = adat_header,
@@ -257,30 +330,7 @@ plot_levey(
 | Metric | Target |
 |--------|--------|
 | Median CV | ~5% after normalization (excellent plate quality) |
-| QC Ratio | >= 85% of analytes with ratios between 0.84 and 1.19 (+/-20% of reference) |
-
-**How QC Ratio is calculated:**
-
-1. For each protein in QC samples: `QC Ratio = Observed Signal / Historical Reference Signal`
-2. Count percentage of proteins with ratios in range [0.84, 1.19]
-3. PASS: >= 85% of proteins within range; FAIL: < 85%
-
-```r
-# Calculate QC ratios
-qc_ratios <- adat_tbl %>%
-  filter(SampleType == "QC") %>%
-  select(starts_with("seq.")) %>%
-  mutate(across(starts_with("seq."), ~ .x / reference_signal))
-
-# Calculate percentage within acceptable range
-qc_stats <- qc_ratios %>%
-  summarise(
-    pct_in_range = mean(
-      across(starts_with("seq."), ~ between(.x, 0.84, 1.19))
-    ) * 100,
-    Pass = pct_in_range >= 85
-  )
-```
+| ColCheck PASS rate | >= 85% of protein targets with signal ratios between 0.8 and 1.2 |
 
 > These thresholds follow both clinical laboratory QC standards (Westgard rules) and technical specifications for the platform.
 
@@ -518,21 +568,17 @@ process_adat_file <- function(file, df_cvs_all, output_dir) {
   message(paste("Processing:", basename(file)))
 
   tryCatch({
-    # Read ADAT file
     adat        <- SomaDataIO::read_adat(file)
     adat_tbl    <- adat
     adat_header <- attributes(adat)
 
-    # Get experiment date for naming
     exp_date      <- as.character(adat_header$Header.Meta$HEADER$ExpDate)
     file_basename <- tools::file_path_sans_ext(basename(file))
 
-    # Create timestamped output filename
     timestamp   <- format(Sys.time(), "%Y%m%d_%H%M%S")
     report_name <- paste0(file_basename, "_QC_Report_", timestamp, ".html")
     report_path <- file.path(output_dir, report_name)
 
-    # Generate QC plots
     message("  - Generating QC plots...")
 
     levey_qc <- plot_levey(
@@ -553,7 +599,6 @@ process_adat_file <- function(file, df_cvs_all, output_dir) {
       show_zones  = TRUE
     )
 
-    # PCA plot
     pca_dat    <- adat_tbl %>% select(starts_with("seq."))
     pca_res    <- prcomp(pca_dat, scale = TRUE)
     pca_scores <- as.data.frame(pca_res$x)
@@ -576,7 +621,6 @@ process_adat_file <- function(file, df_cvs_all, output_dir) {
       ) +
       ggplot2::theme_minimal()
 
-    # Calculate summary statistics
     message("  - Calculating QC metrics...")
 
     sample_summary  <- table(adat_tbl$SampleType, adat_tbl$PlateId)
@@ -600,7 +644,6 @@ process_adat_file <- function(file, df_cvs_all, output_dir) {
         .groups = "drop"
       )
 
-    # Generate HTML report
     message("  - Rendering HTML report...")
 
     rmd_content <- c(
