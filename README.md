@@ -6,7 +6,7 @@
 
 ---
 
-## Video Tutorial — Step by Step Guide
+## Video Tutorial - Step by Step Guide
 
 Watch this comprehensive video tutorial to learn how to use the SQS application:
 
@@ -40,11 +40,11 @@ A full example HTML report:
 
 The application uses the following acceptance criteria aligned with existing specifications.
 
-> **Important:** Every column — `RowCheck`, `NormScale_*`, `ANMLFractionUsed_*`, `HybControlNormScale`, plate scale factors, and calibrator tail percentages — is already written into the `.adat` file by SomaLogic's processing pipeline before the data reaches you. This app reads, evaluates, and visualises these pre-computed values, applying acceptance criteria to flag samples or plates that fall outside expected ranges. The only metrics the app calculates itself are the CV statistics and Levey-Jennings plots, which are derived fresh from the raw `seq.*` protein signal columns on each run. This design means the app is fully consistent with SomaLogic's own QC outputs — it does not reinterpret or recompute the normalization, it surfaces and contextualises what SomaLogic has already determined.
+> **Important:** Every column - `RowCheck`, `NormScale_*`, `ANMLFractionUsed_*`, `HybControlNormScale`, plate scale factors, and calibrator tail percentages - is already written into the `.adat` file by SomaLogic's processing pipeline before the data reaches you. This app reads, evaluates, and visualises these pre-computed values, applying acceptance criteria to flag samples or plates that fall outside expected ranges. The only metrics the app calculates itself are the CV statistics and Levey-Jennings plots, which are derived fresh from the raw `seq.*` protein signal columns on each run. This design means the app is fully consistent with SomaLogic's own QC outputs - it does not reinterpret or recompute the normalization, it surfaces and contextualises what SomaLogic has already determined.
 
 ---
 
-### Section 4.1 — Sample-Level QC (RowCheck Flag)
+### Section 4.1 - Sample-Level QC (RowCheck Flag)
 
 Samples with `RowCheck = "FLAG"` are automatically identified during SomaScan processing.
 
@@ -66,7 +66,7 @@ n_flagged <- nrow(flagged_samples)
 
 ---
 
-### Section 4.2 — Normalization Scale Factors
+### Section 4.2 - Normalization Scale Factors
 
 | Result | Criteria |
 |--------|----------|
@@ -77,7 +77,7 @@ Applies to Sample-type rows across all three SomaScan dilution groups.
 
 **How it's calculated:**
 
-`NormScale_0_005`, `NormScale_0_5`, and `NormScale_20` are pre-computed by SomaLogic's normalization pipeline and stored as per-sample columns in the `.adat` file, one per dilution group (0.005%, 0.5%, 20%). These represent the final normalization scale factors after all corrections — including hybridization control normalization, median signal normalization, and plate scaling — have already been applied internally. The app reads these columns directly and applies the 0.4-2.5 acceptance criteria, summarising results as Pass/Flag counts per dilution group across all Sample-type rows.
+`NormScale_0_005`, `NormScale_0_5`, and `NormScale_20` are pre-computed by SomaLogic's normalization pipeline and stored as per-sample columns in the `.adat` file, one per dilution group (0.005%, 0.5%, 20%). These represent the final normalization scale factors after all corrections - including hybridization control normalization, median signal normalization, and plate scaling - have already been applied internally. The app reads these columns directly and applies the 0.4-2.5 acceptance criteria, summarising results as Pass/Flag counts per dilution group across all Sample-type rows.
 
 `HybControlNormScale` is also present as a pre-computed per-sample column reflecting the hybridization efficiency correction applied early in SomaLogic's pipeline. It is available in the data but is not currently evaluated in the app's QC calculations.
 
@@ -103,7 +103,7 @@ df_norm_scale %>%
 
 ---
 
-### Section 4.3 — ANML Fraction Used
+### Section 4.3 - ANML Fraction Used
 
 | Result | Criteria |
 |--------|----------|
@@ -129,7 +129,7 @@ df_anml_fraction <- adat_tbl %>%
 
 ---
 
-### Section 5.1 — Plate Scale Factors
+### Section 5.1 - Plate Scale Factors
 
 | Result | Criteria |
 |--------|----------|
@@ -138,7 +138,7 @@ df_anml_fraction <- adat_tbl %>%
 
 **How it's calculated:**
 
-Plate scale factors are pre-computed by SomaLogic's pipeline and stored in the `.adat` header metadata — not as row-level columns. The app extracts them by scanning header keys matching `PlateScale_Scalar_*` and `PlateScale_PassFlag_*`.
+Plate scale factors are pre-computed by SomaLogic's pipeline and stored in the `.adat` header metadata - not as row-level columns. The app extracts them by scanning header keys matching `PlateScale_Scalar_*` and `PlateScale_PassFlag_*`.
 
 ```r
 adat_header <- attributes(adat)
@@ -166,7 +166,7 @@ df_plate_scale <- inner_join(df_plate_scale_pass, df_plate_scale_value, by = "Pl
 
 ---
 
-### Section 5.2 — Calibrator Signal in Tails
+### Section 5.2 - Calibrator Signal in Tails
 
 | Result | Criteria |
 |--------|----------|
@@ -204,7 +204,7 @@ df_cal_perc_tails <- inner_join(df_cal_perc_test, df_cal_perc_value, by = "Plate
 
 ---
 
-### Section 5.3 — Protein Targets in Tails (ColCheck)
+### Section 5.3 - Protein Targets in Tails (ColCheck)
 
 | Result | Criteria |
 |--------|----------|
@@ -230,7 +230,7 @@ table(df_SOMAmers_tails$ColCheck)
 
 ---
 
-### Section 5.4 — Calibrator Precision per Plate
+### Section 5.4 - Calibrator Precision per Plate
 
 Reports the 10th, 50th (median), and 90th percentile CV values.
 
@@ -242,7 +242,7 @@ This is one of the metrics the app calculates itself from the raw `seq.*` protei
 2. For each protein (`seq.*` column), calculate CV across calibrator replicates: `CV = (Standard Deviation / Mean) x 100%`
 3. Across all proteins, calculate percentiles:
    - **10th percentile:** 10% of proteins have CV below this value (best precision)
-   - **50th percentile (Median):** Middle value — typical precision for the plate
+   - **50th percentile (Median):** Middle value - typical precision for the plate
    - **90th percentile:** 90% of proteins have CV below this value (acceptable upper limit)
 
 ```r
@@ -272,14 +272,14 @@ df_cvs <- adat_tbl %>%
 
 ---
 
-### Sections 5.4.1 and 5.5.1 — Plate-Level Quality Trends (Levey-Jennings Plots)
+### Sections 5.4.1 and 5.5.1 - Plate-Level Quality Trends (Levey-Jennings Plots)
 
 | Zone | Range | Status |
 |------|-------|--------|
-| Zone 1 | +/-1 SD | Optimal — PASS |
-| Zone 2 | +/-2 SD | Warning — requires attention |
-| Zone 3 | +/-3 SD | Action — investigate conditions |
-| Beyond +/-3 SD | > +/-3 SD | Out of control — plate should be rejected or repeated |
+| Zone 1 | +/-1 SD | Optimal - PASS |
+| Zone 2 | +/-2 SD | Warning - requires attention |
+| Zone 3 | +/-3 SD | Action - investigate conditions |
+| Beyond +/-3 SD | > +/-3 SD | Out of control - plate should be rejected or repeated |
 
 **How it's calculated:**
 
@@ -321,7 +321,7 @@ plot_levey(
 )
 ```
 
-**Action:** Follow Westgard rules — consecutive violations or trends indicate systematic problems.
+**Action:** Follow Westgard rules - consecutive violations or trends indicate systematic problems.
 
 ---
 
