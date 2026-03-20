@@ -69,7 +69,7 @@ Per-plate CV distributions are calculated by the application from the raw protei
 The application reads and evaluates the QC metrics pre-computed by SomaLogic's pipeline and embedded in the `.adat` file. These include per-sample normalization scale factors across three dilution groups (`NormScale_0_005`, `NormScale_0_5`, `NormScale_20`), ANML fraction used per dilution group, plate-level scale factors extracted from the file header, calibrator tail percentages, per-protein calibration accuracy flags (`ColCheck`), and per-sample quality flags (`RowCheck`). Configurable acceptance criteria are applied to each metric and results are summarised as Pass/Flag counts, making systematic issues immediately visible without requiring users to inspect raw file contents.
 
 **Data Export**
-Processed protein abundance matrices can be exported in multiple formats (CSV, TSV, Excel, RDS) with configurable options for orientation, metadata inclusion, and transformation. Annotation tables mapping protein identifiers to metadata (e.g., UniProt, Entrez) can also be exported in multiple formats.
+Processed protein abundance matrices can be exported in CSV, TSV, Excel (.xlsx), or RDS format with configurable options for matrix orientation (samples as rows or columns), sample metadata inclusion (PlateId, SampleId, SampleType, Barcode, or all metadata columns), and optional log2 transformation. Protein annotation tables mapping sequence identifiers to gene-level metadata (Target, TargetFullName, UniProt, EntrezGeneID, EntrezGeneSymbol, Organism, Dilution, ColCheck) can be exported in CSV, TSV, Excel, or JSON format.
 
 **Automated Reporting**
 The application generates self-contained HTML reports that include sample summaries, QC plots, normalization metrics, calibration statistics, and analysis metadata. Reports are reproducible and suitable for publication or regulatory documentation.
@@ -101,7 +101,7 @@ Visualization design follows established statistical process control conventions
 * QC report generation: approximately 113 seconds for 15 plates on Apple M1 (64 GB, macOS 14.7.6)
 * Data export operations: <5 seconds for standard formats
 * Excel export: <15 seconds with progress indicators
-* Maximum supported file size: 500 MB
+* Default maximum file size: 500 MB, configurable via `options(shiny.maxRequestSize)` in `global.R`
 * Batch processing: multiple `.adat` files processed sequentially with individual HTML reports per file
 
 These performance characteristics enable rapid QC assessment during data review and integration into routine workflows without requiring specialized computing infrastructure.
