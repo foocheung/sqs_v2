@@ -47,7 +47,14 @@ A full example HTML report:
 - Upload SomaScan `.adat` files directly through the web interface
 - Load built-in example data for exploration without your own files
 - Upload your own historical reference data (Excel format) for Levey-Jennings comparison
-- Handles large multi-plate files up to 500 MB
+- Handles large multi-plate files up to 500 MB by default. This limit is set in `global.R` and can be increased if needed:
+
+```r
+# In global.R
+options(shiny.maxRequestSize = 500 * 1024^2)  # 500 MB (default)
+options(shiny.maxRequestSize = 1000 * 1024^2) # 1 GB
+options(shiny.maxRequestSize = 2000 * 1024^2) # 2 GB
+```
 
 ### Quality Control
 
