@@ -28,7 +28,7 @@ bibliography: paper.bib
 
 The application is built using the Shiny framework [@chang2021shiny] and implements statistical process control methods adapted for multi-plate proteomics datasets. These include enhanced Levey–Jennings plots [@levey1950use] with color-coded quality zones aligned with clinical QC standards [@westgard1981multirule; @westgard2008basic], principal component analysis (PCA) for detection of batch effects and outliers, and coefficient of variation (CV) tracking across experimental batches. Users can upload SomaScan data, interactively explore QC metrics, export processed datasets in multiple formats, and generate publication-ready HTML reports without requiring advanced programming expertise.
 
-By providing a consistent and accessible QC framework, `sqs` enables researchers, clinicians, and bioinformaticians to rapidly assess data quality, identify systematic issues, document QC decisions, and produce reproducible outputs for collaborative and regulatory use.
+SomaScan's processing pipeline pre-computes a comprehensive set of QC metrics — including normalization scale factors, ANML fractions, plate scale factors, calibrator tail percentages, and per-sample quality flags — and writes these directly into the `.adat` file. `sqs` surfaces these pre-computed values through a consistent, accessible interface, applies configurable acceptance criteria, and places each run in historical context using user-provided reference data. In addition, the application independently calculates per-plate CV distributions and Levey–Jennings trend plots from the raw protein signal data, providing precision monitoring that goes beyond the static flags embedded in the file. By combining these capabilities into a single reproducible workflow, `sqs` enables researchers, clinicians, and bioinformaticians to rapidly assess data quality, identify systematic issues, document QC decisions, and produce reproducible outputs for collaborative and regulatory use.
 
 ---
 
@@ -38,17 +38,17 @@ High-throughput proteomics technologies such as SomaScan generate large, multi-p
 
 Researchers require tools that standardize QC procedures, provide intuitive visualizations, and generate automated documentation. Additional needs include flexible data export for downstream analysis, support for batch processing of multiple datasets, and accessibility for users without extensive programming expertise.
 
-While tools exist for SomaScan data processing [@somalogic2023], few solutions provide integrated, interactive QC workflows. `sqs` was developed to address this gap by implementing a complete QC workflow that combines domain-specific visualization, statistical process control methods, and reproducible reporting in a single application. The software has been applied in NIH multi-omics studies and more recently used in published research involving dietary interventions [@link2024vegan] and post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its utility in translational proteomics workflows.
+While SomaLogic's pipeline produces a rich set of per-sample and per-plate QC flags within the `.adat` file format, interpreting these values, applying acceptance criteria consistently, comparing performance against historical runs, and assembling findings into a shareable report requires substantial manual effort. `sqs` was developed to address this gap by providing a complete, interactive QC workflow that reads and contextualises SomaLogic's pre-computed metrics, independently calculates precision statistics from raw signal data, and packages all outputs into reproducible HTML reports. The software has been applied in NIH multi-omics studies and used in published research involving dietary interventions [@link2024vegan] and post-infectious chronic fatigue syndrome [@walitt2024cfs], demonstrating its utility in translational proteomics workflows.
 
 ---
 
 # State of the Field
 
-Existing approaches to SomaScan data analysis primarily focus on down stream data analysis [@somalogic2023], and while QC workflows are often implemented through custom pipelines or general-purpose visualization tools. These approaches require programming expertise and substantial development time, and they lack standardized implementations of proteomics-specific QC metrics.
+Existing approaches to SomaScan data analysis primarily focus on downstream statistical analysis [@somalogic2023], while QC workflows are often implemented through custom pipelines or general-purpose visualization tools. These approaches require programming expertise and substantial development time, and they lack standardized implementations of proteomics-specific QC metrics.
 
 General visualization platforms do not natively support statistical process control methods commonly used in laboratory QC, requiring manual adaptation. As a result, QC practices vary widely across research groups, limiting reproducibility and comparability of results.
 
-`sqs` addresses these limitations by providing a dedicated, open-source application that integrates QC logic, standardized statistical process control visualizations, and automated reporting in a reproducible framework. The software is designed to be accessible to non-programmers while remaining flexible for advanced users, bridging the gap between usability and methodological rigor.
+`sqs` addresses these limitations by providing a dedicated, open-source application that reads and evaluates SomaLogic's embedded QC outputs, supplements them with independently calculated precision metrics and historical trend analysis, and integrates everything into a standardized, reproducible reporting framework. The software is designed to be accessible to non-programmers while remaining flexible for advanced users, bridging the gap between usability and methodological rigor.
 
 ---
 
@@ -57,13 +57,16 @@ General visualization platforms do not natively support statistical process cont
 `sqs` provides a comprehensive set of tools for QC assessment, data processing, and reporting:
 
 **Levey–Jennings Plots**
-The application generates statistical process control charts [@levey1950use] with color-coded quality zones (±1, ±2, ±3 standard deviations) based on established clinical laboratory practices [@westgard1981multirule; @westgard2008basic]. These visualizations use shaded regions and distinct plot elements to indicate acceptable, warning, and out-of-control ranges, enabling rapid identification of systematic trends or assay drift.
+The application generates statistical process control charts [@levey1950use] with color-coded quality zones (±1, ±2, ±3 standard deviations) based on established clinical laboratory practices [@westgard1981multirule; @westgard2008basic]. Per-plate median CV values are calculated by the application from the raw `seq.*` protein signal columns and plotted against a user-provided historical reference distribution. Shaded regions and distinct point shapes indicate acceptable, warning, and out-of-control ranges, enabling rapid identification of systematic trends or assay drift across sequential runs.
 
 **Principal Component Analysis (PCA)**
 Interactive PCA plots allow users to detect clustering patterns, batch effects, and outliers. Variance explained by each component is displayed, and samples can be colored by metadata variables such as plate or sample type.
 
 **Coefficient of Variation Analysis**
-Per-plate CV distributions are calculated and summarized using quantiles, allowing users to monitor assay precision across batches and identify plates with elevated variability.
+Per-plate CV distributions are calculated by the application from the raw protein signal data and summarized using the 10th, 50th, and 90th percentiles, allowing users to monitor assay precision across batches and identify plates with elevated variability.
+
+**Normalization and Calibration Metrics**
+The application reads and evaluates the QC metrics pre-computed by SomaLogic's pipeline and embedded in the `.adat` file. These include per-sample normalization scale factors across three dilution groups (`NormScale_0_005`, `NormScale_0_5`, `NormScale_20`), ANML fraction used per dilution group, plate-level scale factors extracted from the file header, calibrator tail percentages, per-protein calibration accuracy flags (`ColCheck`), and per-sample quality flags (`RowCheck`). Configurable acceptance criteria are applied to each metric and results are summarised as Pass/Flag counts, making systematic issues immediately visible without requiring users to inspect raw file contents.
 
 **Data Export**
 Processed protein abundance matrices can be exported in multiple formats (CSV, TSV, Excel, RDS) with configurable options for orientation, metadata inclusion, and transformation. Annotation tables mapping protein identifiers to metadata (e.g., UniProt, Entrez) can also be exported in multiple formats.
@@ -83,7 +86,7 @@ Users can incorporate historical reference datasets for Levey–Jennings plots, 
 
 `sqs` is implemented as a modular Shiny application [@chang2021shiny] using the Golem framework [@fay2021golem], which supports reproducibility, testing, and maintainability. The application leverages the tidyverse ecosystem [@wickham2019tidyverse] for data manipulation and Apache Arrow [@richardson2022arrow] for efficient handling of large datasets.
 
-The architecture separates functionality into reusable modules for data input, processing, visualization, and export. This modular design enables extension of QC metrics and features without major refactoring. Core QC functions are centralized to ensure consistency and reduce duplication.
+The architecture separates functionality into reusable modules for data input, processing, visualization, and export. This modular design enables extension of QC metrics and features without major refactoring. Core QC functions are centralized in `global.R` to ensure consistency and reduce duplication.
 
 Design decisions emphasize usability and reproducibility. A tab-based interface enables progressive disclosure, allowing users to perform basic QC workflows immediately while accessing advanced features as needed. Integration with R Markdown ensures that all outputs are reproducible and compatible with standard research documentation workflows.
 
@@ -95,11 +98,11 @@ Visualization design follows established statistical process control conventions
 
 `sqs` is optimized for typical SomaScan dataset sizes encountered in research:
 
-* QC report generation: ~2 minutes for multi-plate datasets
+* QC report generation: approximately 113 seconds for 15 plates on Apple M1 (64 GB, macOS 14.7.6)
 * Data export operations: <5 seconds for standard formats
 * Excel export: <15 seconds with progress indicators
-* Performance: Handles large multi-plate files with optimized performance
-* Batch File Support: Process multiple .adat files in one run using custom reference data, generating individual reports and summary statistics
+* Maximum supported file size: 500 MB
+* Batch processing: multiple `.adat` files processed sequentially with individual HTML reports per file
 
 These performance characteristics enable rapid QC assessment during data review and integration into routine workflows without requiring specialized computing infrastructure.
 
