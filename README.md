@@ -606,38 +606,18 @@ center = "mean"    # Traditional approach
 
 ### Batch Processing
 
-Automatically process hundreds of `.adat` files against your own historical reference data with comprehensive QC reports:
+Automatically process hundreds of `.adat` files against your own historical reference data, generating an individual HTML QC report per file. A complete working script is provided in the repository at [`batch_processing_example.R`](https://github.com/foocheung/sqs_v2/blob/main/batch_processing_example.R).
 
-```r
-# ==============================================================================
-# Batch Processing SomaScan Files with Report Generation
-# ==============================================================================
+The script handles loading your reference data, iterating over all `.adat` files in a directory, generating PCA plots, Levey-Jennings charts, and calibrator CV tables for each file, and rendering a self-contained HTML report. On completion it prints and saves a summary table across all processed files:
 
-library(SomaDataIO)
-library(dplyr)
-library(rmarkdown)
-library(readxl)
-source("./R/global.R")
-
-# Directory containing .adat files
-adat_dir <- "path/to/your/adat/files"
-
-# Load reference data
-df_cvs_all <- readxl::read_excel("inst/data/synthetic_data.xlsx")
-names(df_cvs_all) <- gsub("^`|`$", "", names(df_cvs_all))
-df_cvs_all <- df_cvs_all %>%
-  dplyr::mutate(ExpDate = as.Date(ExpDate))
-
-# Output directory
-output_dir <- "batch_qc_reports"
-dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-
-# Process all files
-adat_files <- list.files(adat_dir, pattern = "\\.adat$", full.names = TRUE)
-results <- lapply(adat_files, function(file) {
-  process_adat_file(file, df_cvs_all, output_dir)
-})
 ```
+   File      ExpDate                                    Samples Flagged Plates  Status
+1  a.adat    2023-07-14                                     480      16      5  Success
+2  b.adat    2025-07-16, 2025-07-14, 2025-07-10, 2025-07-17  384       2      4  Success
+3  c.adat    2024-07-18                                      96       0      1  Success
+```
+
+The summary is saved as both CSV and Excel to the output directory. Any files that fail are flagged in the Status column with the error message, so the rest of the batch continues uninterrupted.
 
 ---
 
