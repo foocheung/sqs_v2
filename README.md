@@ -567,26 +567,23 @@ plot_levey(
 
 ## Using Custom Reference Data
 
-You can provide your own historical reference data for Levey-Jennings plots:
+To use your own historical reference data for Levey-Jennings plots, follow the format of the example file included in the repository at `inst/data/synthetic_data.xlsx`. The required columns are:
 
-```r
-# Prepare your reference data
-# Format: Data frame with columns: ExpDate, PlateId, SampleType, CV quantiles
-reference_data <- data.frame(
-  ExpDate    = c("2024-01-01", "2024-01-15"),
-  PlateId    = c("Plate001", "Plate002"),
-  SampleType = c("QC", "QC"),
-  "10%"      = c(5.2, 5.5),
-  "50%"      = c(7.8, 8.1),
-  "90%"      = c(11.2, 11.5),
-  check.names = FALSE
-)
+| Column | Description |
+|--------|-------------|
+| `ExpDate` | Date of the experiment |
+| `ADATFile` | Path or name of the source `.adat` file |
+| `Title` | Study or run title |
+| `SampleType` | Sample type (e.g., `QC`, `Calibrator`, `CHI_Control`) |
+| `PlateId` | Plate identifier |
+| `10%` | 10th percentile CV for that plate and sample type |
+| `50%` | 50th percentile (median) CV |
+| `90%` | 90th percentile CV |
 
-# Upload through the app interface
-# The app will automatically use your reference data for comparison
-```
+Once your file is formatted, upload it through the app interface or point to it in the batch processing script. The app will automatically use it in place of the built-in reference data for Levey-Jennings comparisons.
 
 ---
+
 
 ## Advanced Features
 
@@ -604,6 +601,7 @@ center = "median"  # More robust (default)
 center = "mean"    # Traditional approach
 ```
 
+---
 ### Batch Processing
 
 Automatically process hundreds of `.adat` files against your own historical reference data, generating an individual HTML QC report per file. A complete working script is provided in the repository at [`batch_processing_example.R`](https://github.com/foocheung/sqs_v2/blob/main/batch_processing_example.R).
