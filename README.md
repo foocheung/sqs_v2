@@ -8,7 +8,7 @@
 
 ## Demo
 
-NEED TO UPDATE THIS APP Try the app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
+Try the app online: [https://webtools.shinyapps.io/sqs_v3_ori/](https://webtools.shinyapps.io/sqs_v3_ori/)
 
 ---
 
