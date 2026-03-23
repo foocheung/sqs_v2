@@ -1,22 +1,26 @@
 # ==============================================================================
-# Batch Processing SomaScan Files with Report Generation
+# Batch Processing .adat Files with Report Generation
 # ==============================================================================
 
-library(SomaDataIO)
-library(dplyr)
-library(rmarkdown)
-library(readxl)
-
+# NOTE: This script must be run from the root of the cloned sqs_v2 repository.
+# The path "./R/global.R" is relative to the repository root, e.g.:
+#   /path/to/sqs_v2/R/global.R
+source("./R/global.R")
+ 
 # ==============================================================================
 # Setup: Define paths and load reference data
 # ==============================================================================
-
-# Directory containing .adat files
+ 
+# Directory containing your .adat files — set this to your local path
 adat_dir <- "path/to/your/adat/files"
-
+ 
 # Load reference data from synthetic_data.xlsx
+# NOTE: "inst/data/synthetic_data.xlsx" is relative to the repository root, e.g.:
+#   /path/to/sqs_v2/inst/data/synthetic_data.xlsx
+# Replace this path if you are using your own historical reference data file.
 message("Loading reference data from synthetic_data.xlsx...")
-df_cvs_all <- readxl::read_excel("synthetic_data.xlsx")
+df_cvs_all <- readxl::read_excel("inst/data/synthetic_data.xlsx")
+ 
 
 # Fix column names - remove escaped backticks if present
 names(df_cvs_all) <- gsub("^`|`$", "", names(df_cvs_all))
